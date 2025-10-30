@@ -1,0 +1,19 @@
+# 개발용 Dockerfile
+FROM node:20-alpine
+
+# 필요한 패키지 설치
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# package.json 복사 및 의존성 설치
+COPY package.json package-lock.json* ./
+RUN npm install
+
+# 소스 코드는 volume으로 마운트됨
+# (docker-compose에서 volumes: ./:/app 설정 필요)
+
+EXPOSE 3000
+
+# 개발 서버 실행
+CMD ["npm", "run", "dev"]
