@@ -1,7 +1,7 @@
 ---
 name: Task Create
 about: 기본 투두 형식
-title: ''
+title: "\U0001F4AC [FEAT] - "
 labels: Task
 assignees: ''
 

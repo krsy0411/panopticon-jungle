@@ -1,7 +1,7 @@
 ---
 name: Feature request
 about: 기능 추가
-title: ''
+title: "\U0001F4BB [Task] - "
 labels: Task
 assignees: ''
 
