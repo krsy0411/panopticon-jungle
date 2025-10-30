@@ -9,6 +9,7 @@
 | **feature/**  | `feature/signup-ui`     | 새로운 기능 개발                                      |
 | **fix/**      | `fix/post-api-error`    | 오류 수정 (일반 + 긴급)                               |
 | **refactor/** | `refactor/comment-hook` | 리팩토링 (기능 변화 없고 코드 구조 개선과 관련)       |
+| **test/**     | `test/routing-next`     | 테스트 (기능 개발과 관계없이 테스트가 필요할때)       |
 | **...**       | `...`                   | 코드 구현과 관련없는 이외의 작업들은 바로 Main에 커밋 |
 
 ---
