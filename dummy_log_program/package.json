@@ -1,0 +1,20 @@
+{
+  "name": "dummy_log_program",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node --loader ts-node/esm ./dummy_log_program.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "axios": "^1.13.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
