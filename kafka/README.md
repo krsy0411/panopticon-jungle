@@ -9,6 +9,35 @@
 - 기본 토픽 자동 생성: 활성화 (`logs.raw` 등 필요 시 자동 생성)
 - 데이터 영속화: `kafka-data` 볼륨
 
+## 사용자 <-> fluent <-> backend <-> kafka 연결 확인 방법
+
+```bash
+
+# 카프카 브로커 가동
+docker compose -f kafka/docker-compose.kafka.yml up -d
+
+# 서버 가동
+npm run start:dev
+
+# fluent-bit 가동
+fluent-bit -c backend/fluent-bit.conf
+
+# 로그 변경
+echo '{"message":"아무말이나 적기"}' >> backend/logs/app.log
+
+# 확인
+app.log 파일 또는 fluent, backend 터미널에서 확인 가능
+
+# 카프카 확인
+docker exec panopticon-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 \
+  --topic logs.raw \
+  --from-beginning \
+  --timeout-ms 1000 | jq '.payload[]?.message'
+
+
+```
+
 ## 실행 방법
 
 ```bash
@@ -29,12 +58,12 @@ docker compose -f kafka/docker-compose.kafka.yml down -v
 
 백엔드(`backend`)는 환경 변수를 통해 카프카에 접속합니다.
 
-| 환경 변수 | 기본값 | 설명 |
-|-----------|--------|------|
-| `KAFKA_BROKERS` | `localhost:9092` | 브로커 호스트 목록(쉼표 구분) |
-| `KAFKA_CLIENT_ID` | `panopticon-backend` | 클라이언트 식별자 |
-| `KAFKA_LOG_TOPIC` | `logs.raw` | 로그 수집 토픽명 |
-| `KAFKA_ALLOW_AUTO_TOPIC_CREATION` | `true` | 필요 시 토픽 자동 생성 |
+| 환경 변수                         | 기본값               | 설명                          |
+| --------------------------------- | -------------------- | ----------------------------- |
+| `KAFKA_BROKERS`                   | `localhost:9092`     | 브로커 호스트 목록(쉼표 구분) |
+| `KAFKA_CLIENT_ID`                 | `panopticon-backend` | 클라이언트 식별자             |
+| `KAFKA_LOG_TOPIC`                 | `logs.raw`           | 로그 수집 토픽명              |
+| `KAFKA_ALLOW_AUTO_TOPIC_CREATION` | `true`               | 필요 시 토픽 자동 생성        |
 
 > NestJS 앱을 실행하기 전에 `docker compose`로 브로커를 띄우고, 필요하면 `.env`에 위 변수를 정의하세요. Apache Kafka 공식 이미지는 `KAFKA_` 환경 변수를 직접 받은 뒤 내부 설정 파일을 생성하므로, 단일 노드 개발 환경에서는 현재 값으로 충분합니다.
 
