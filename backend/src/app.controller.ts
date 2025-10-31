@@ -1,11 +1,9 @@
-import { Body, Controller, Post, Req } from '@nestjs/common';
+import { Body, Controller, Post } from "@nestjs/common";
 
-@Controller('logs')
+@Controller("logs")
 export class AppController {
-
   @Post()
-  ingest(@Body() payload: any, @Req() req: any) {
-    console.log('[log] from', req.ip, JSON.stringify(payload));
-    return { status: 'ok' };
+  ingest(@Body() payload: any) {
+    console.log("[log] from", JSON.stringify(payload));
   }
 }
