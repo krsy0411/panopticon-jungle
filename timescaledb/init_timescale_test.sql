@@ -2,9 +2,9 @@
 -- TimescaleDB quick test script for manual use
 -- Usage (example):
 -- 1) Using docker exec into your container:
---   docker exec -i panopticon-timescaledb psql -U admin -d panopticon -f /dev/stdin < init_timescale_test.sql
+--   docker exec -i <컨테이너 이름> psql -U admin -d panopticon -f /dev/stdin < init_timescale_test.sql
 -- 2) Or from host with psql (if PGPASSWORD set):
---  PGPASSWORD=admin123 psql -h localhost -p 5432 -U admin -d panopticon -f init_timescale_test.sql
+--  PGPASSWORD=admin123 psql -h localhost -p 5433 -U admin -d panopticon -f init_timescale_test.sql
 --
 -- This file is idempotent: it uses IF NOT EXISTS where appropriate.
 
