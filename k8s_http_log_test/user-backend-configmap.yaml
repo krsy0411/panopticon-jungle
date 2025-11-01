@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: board-config
+data:
+  NODE_ENV: "production"
+  DB_NAME: "mongodb"
+  DB_ADDR: "localhost"
+  DB_PORT: "27017"
+  DB_DATABASE: "week14_board_dev"
+  MONGODB_URI: "mongodb://mongo-service:27017/week14_board_dev"
+  PORT: "3000"
+  JWT_SECRET: "week14_team3_board"
