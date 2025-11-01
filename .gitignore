@@ -5,15 +5,15 @@
 *.swp
 *.swo
 *~
-.env.local
-.env.*.local
 
 # Node.js & Package Manager
 node_modules/
+package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+lerna-debug.log*
 .pnp
 .pnp.js
 
@@ -24,18 +24,22 @@ build/
 out/
 *.tsbuildinfo
 coverage/
+.nyc_output/
 
 # Environment & Secrets
 .env
 .env.local
 .env.*.local
 .env.production.local
+.env.development.local
+.env.test.local
 
 # Backend (NestJS)
 backend/dist/
 backend/node_modules/
 backend/coverage/
 backend/logs/
+backend/*.log
 
 # Frontend (Next.js)
 frontend/node_modules/
@@ -43,10 +47,17 @@ frontend/.next/
 frontend/out/
 frontend/build/
 frontend/coverage/
+frontend/*.log
 
 # Dummy Log Program
 dummy_log_program/node_modules/
 dummy_log_program/dist/
+dummy_log_program/*.log
+
+# K8s Log Generator
+k8s-log-generator/node_modules/
+k8s-log-generator/dist/
+k8s-log-generator/*.log
 
 # Database & Logs
 *.log
@@ -71,9 +82,9 @@ $RECYCLE.BIN/
 .windows/
 
 # Testing
-jest.config.js
 coverage/
 .nyc_output/
+*.lcov
 
 # IDE Files
 *.code-workspace
@@ -82,8 +93,23 @@ coverage/
 !.vscode/launch.json
 !.vscode/settings.json
 
+# ESLint & Prettier Cache
+.eslintcache
+.prettiercache
+
 # Misc
 .cache/
 .parcel-cache/
 dist-ssr/
 *.local
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Docker
+*.pid
+*.seed
+*.pid.lock
