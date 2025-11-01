@@ -67,7 +67,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     });
 
     this.logger.log(
-      `Kafka consumer subscribed: topic=${this.topic}, groupId=${this.groupId}`
+      `Kafka consumer subscribed: topic=${this.topic}, groupId=${this.groupId}`,
     );
 
     void this.consumer
@@ -77,28 +77,30 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
           if (!rawValue) {
             this.logger.warn("Received Kafka message without payload");
-            return;
+            return Promise.resolve();
           }
 
           try {
             const parsed: unknown = JSON.parse(rawValue);
             this.logger.log(
-              `Consumed log (topic=${topic}, partition=${partition}): ${JSON.stringify(parsed)}`
+              `Consumed log (topic=${topic}, partition=${partition}): ${JSON.stringify(parsed)}`,
             );
           } catch (error) {
             if (error instanceof Error) {
               this.logger.error(
                 `Failed to parse Kafka message: ${rawValue}`,
-                error.stack
+                error.stack,
               );
             } else {
               this.logger.error(
                 `Failed to parse Kafka message: ${rawValue}; reason=${String(
-                  error
-                )}`
+                  error,
+                )}`,
               );
             }
           }
+
+          return Promise.resolve();
         },
       })
       .catch((error) => {

@@ -1,8 +1,8 @@
 "use client";
 
-import { ReactNode } from 'react'
-import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
-import AppSidebar from './AppSidebar'
+import { ReactNode } from "react";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import AppSidebar from "./AppSidebar";
 
 export default function Shell({ children }: { children: ReactNode }) {
   return (
@@ -16,5 +16,5 @@ export default function Shell({ children }: { children: ReactNode }) {
         <main className="p-6 min-w-0">{children}</main>
       </SidebarInset>
     </SidebarProvider>
-  )
+  );
 }

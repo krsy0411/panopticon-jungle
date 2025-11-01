@@ -1,20 +1,19 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
-  if (pathname.startsWith('/dashboard')) {
-    const auth = req.cookies.get('auth')?.value
+  const { pathname } = req.nextUrl;
+  if (pathname.startsWith("/dashboard")) {
+    const auth = req.cookies.get("auth")?.value;
     if (!auth) {
-      const url = req.nextUrl.clone()
-      url.pathname = '/login'
-      return NextResponse.redirect(url)
+      const url = req.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
     }
   }
-  return NextResponse.next()
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*'],
-}
-
+  matcher: ["/dashboard/:path*"],
+};
