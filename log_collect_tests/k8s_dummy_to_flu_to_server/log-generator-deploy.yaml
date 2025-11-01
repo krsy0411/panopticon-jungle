@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: log-generator:1.0
+          image: log-generator:latest
           imagePullPolicy: Never # 로컬 이미지 사용 (중요!)
           ports:
             - containerPort: 3000

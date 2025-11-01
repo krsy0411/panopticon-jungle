@@ -13,6 +13,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: board-service
+                name: log-generator-service
                 port:
                   number: 80

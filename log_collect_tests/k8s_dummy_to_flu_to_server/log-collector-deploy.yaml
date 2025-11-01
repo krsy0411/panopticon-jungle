@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: collector
-          image: log-collector:1.0
+          image: log-collector:latest
           imagePullPolicy: Never # 로컬 이미지 사용
           ports:
             - containerPort: 3001
