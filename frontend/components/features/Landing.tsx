@@ -1,7 +1,7 @@
-﻿"use client"
+﻿"use client";
 
-import { Button } from '../ui/button';
-import { Activity, Zap} from 'lucide-react';
+import { Button } from "../ui/button";
+import { Activity, Zap } from "lucide-react";
 
 interface LandingProps {
   onLoginClick: () => void;
@@ -21,7 +21,9 @@ export default function Landing({ onLoginClick }: LandingProps) {
             <Button variant="ghost">제품</Button>
             <Button variant="ghost">가격</Button>
             <Button variant="ghost">문서</Button>
-            <Button variant="outline" onClick={onLoginClick}>로그인</Button>
+            <Button variant="outline" onClick={onLoginClick}>
+              로그인
+            </Button>
           </div>
         </div>
       </header>
@@ -32,14 +34,16 @@ export default function Landing({ onLoginClick }: LandingProps) {
           <Zap className="w-4 h-4" />
           <span className="text-sm">AI 기반 자동화 SRE 플랫폼</span>
         </div>
-        
+
         <h1 className="text-gray-900 mb-6 max-w-4xl mx-auto">
-          운영 자동화의 새로운 기준,<br />
+          운영 자동화의 새로운 기준,
+          <br />
           LLM과 K8s가 만나다
         </h1>
-        
+
         <p className="text-gray-600 text-xl mb-8 max-w-2xl mx-auto">
-          메트릭과 로그를 실시간으로 분석하고, AI가 제안하는 최적의 조치로<br />
+          메트릭과 로그를 실시간으로 분석하고, AI가 제안하는 최적의 조치로
+          <br />
           시스템 안정성을 자동으로 유지하세요.
         </p>
       </section>

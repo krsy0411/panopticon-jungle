@@ -1,0 +1,123 @@
+name: CI - Test & Lint
+
+# 이 워크플로우는 PR이 `main` 브랜치로 열릴 때 (pull_request) 동작합니다.
+# - 목적: 백엔드/프론트엔드의 포맷 검사, 린트, 빌드/테스트를 자동화하여 코드 품질을 보장합니다.
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  # --------------------
+  # Backend job
+  # 백엔드(backend/) 코드에 대해 포맷 검사, 린트, 유닛 테스트(커버리지) 및 커버리지 업로드를 수행합니다.
+  # Jenkins나 다른 CI와 달리 GitHub Actions 상에서 Node 설치/캐시와 npm ci를 사용합니다.
+  # --passWithNoTests 옵션을 사용해 테스트가 없는 경우에도 실패하지 않도록 처리합니다.
+  # --------------------
+  backend:
+    name: Backend Tests & Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 코드 체크아웃: 레포 전체를 가져옵니다.
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      # Node.js 설정: 워크플로우에서 사용할 Node 버전을 고정하고 npm 캐시를 활성화합니다.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          # package-lock.json이 변경될 때만 캐시 무효화가 됩니다.
+          cache-dependency-path: 'backend/package-lock.json'
+      
+      # 의존성 설치: CI 환경에서는 안정성을 위해 `npm ci` 사용을 권장합니다.
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+      
+      # 코드 포맷 검사(Prettier): 코드 스타일 규칙을 준수하는지 검사합니다.
+      - name: Check code formatting
+        working-directory: backend
+        run: npm run format:check
+      
+      # 린트(ESLint): 자동 수정 가능한 문제는 --fix로 고치고, 나머지는 에러로 처리합니다.
+      - name: Run linter
+        working-directory: backend
+        run: npm run lint
+      
+      # 유닛 테스트
+      # - jest를 커버리지 모드로 실행합니다.
+      # - --passWithNoTests: 테스트가 하나도 없을 때 실패하지 않도록 허용합니다 (CI가 중단되는 것을 방지).
+      - name: Run unit tests (tolerate no tests)
+        id: run-tests
+        working-directory: backend
+        # jest 실행 시 테스트가 없으면 실패하지 않도록 --passWithNoTests 사용
+        run: npm run test -- --passWithNoTests
+
+  # --------------------
+  # Frontend job
+  # 프론트엔드(frontend/) 코드에 대해 포맷 검사, 린트, 빌드 수행.
+  # Next.js는 빌드 과정에서 타입체크/린트를 함께 실행하므로, 빌드 전에 개별 lint를 수행해 사전 확인합니다.
+  # --------------------
+  frontend:
+    name: Frontend Tests & Lint
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      
+      # Prettier 포맷 체크
+      - name: Check code formatting
+        working-directory: frontend
+        run: npm run format:check
+      
+      # ESLint 실행 (Next의 lint 설정을 사용)
+      - name: Run linter
+        working-directory: frontend
+        run: npm run lint
+      
+      # 프로덕션 빌드: Next.js의 최적화/정적 생성 과정을 수행합니다.
+      - name: Build project
+        working-directory: frontend
+        run: npm run build
+
+  # --------------------
+  # E2E job
+  # 백엔드의 E2E(통합) 테스트를 별도로 실행합니다. (예: DB/외부 서비스가 필요하면 이 job에서 docker를 띄우도록 확장 가능)
+  # --------------------
+  e2e:
+    name: Backend E2E Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'backend/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+      
+      # 실제 e2e 테스트 실행 (jest e2e config 사용)
+      - name: Run e2e tests
+        working-directory: backend
+        run: npm run test:e2e

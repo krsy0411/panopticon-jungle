@@ -1,12 +1,12 @@
 "use client";
 
-import { Card } from '../ui/card';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Button } from '../ui/button';
-import { Select, SelectTrigger, SelectValue } from '../ui/select';
-import { Badge } from '../ui/badge';
-import { Plus, Save } from 'lucide-react';
+import { Card } from "../ui/card";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Button } from "../ui/button";
+import { Select, SelectTrigger, SelectValue } from "../ui/select";
+import { Badge } from "../ui/badge";
+import { Plus, Save } from "lucide-react";
 
 export default function SLOSettings() {
   return (

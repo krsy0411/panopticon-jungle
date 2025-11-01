@@ -49,10 +49,6 @@ function useSidebar() {
 }
 
 function SidebarProvider({
-  // Props kept for API compatibility, but ignored
-  defaultOpen = true,
-  open: _openProp,
-  onOpenChange: _setOpenProp,
   className,
   style,
   children,
@@ -67,15 +63,18 @@ function SidebarProvider({
   // Always-expanded, non-toggleable sidebar
   const open = true;
   const openMobile = true;
-  const setOpen = React.useCallback((_value: boolean | ((value: boolean) => boolean)) => {
-    // no-op: toggling disabled
-  }, []);
-  const setOpenMobile = React.useCallback((_value: boolean | ((value: boolean) => boolean)) => {
-    // no-op: toggling disabled
-  }, []);
-  const toggleSidebar = React.useCallback(() => {
-    // no-op: toggling disabled
-  }, []);
+  const setOpen = React.useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    (_value: boolean | ((value: boolean) => boolean)) => {},
+    [],
+  );
+  const setOpenMobile = React.useCallback(
+    (_value: boolean | ((value: boolean) => boolean)) => {
+      void _value;
+    },
+    [],
+  );
+  const toggleSidebar = React.useCallback(() => {}, []);
 
   const state: "expanded" | "collapsed" = "expanded";
 
@@ -89,7 +88,7 @@ function SidebarProvider({
       setOpenMobile,
       toggleSidebar,
     }),
-    [state, open, isMobile],
+    [isMobile, open, openMobile, setOpen, setOpenMobile, toggleSidebar],
   );
 
   return (

@@ -4,7 +4,13 @@ import { Card } from "../ui/card";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { Search, Download, RefreshCw } from "lucide-react";
 
 export default function LogViewer() {
@@ -73,7 +79,9 @@ export default function LogViewer() {
                 <Badge variant="outline">INFO</Badge>
               </td>
               <td className="py-2 px-3">user-service</td>
-              <td className="py-2 px-3 text-gray-600">로그 예시 메시지입니다.</td>
+              <td className="py-2 px-3 text-gray-600">
+                로그 예시 메시지입니다.
+              </td>
               <td className="py-2 px-3 text-right">
                 <Button size="sm" variant="ghost">
                   상세
