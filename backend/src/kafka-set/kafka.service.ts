@@ -65,12 +65,8 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
         topics: [
           {
             topic: this.topic,
-            numPartitions: Number(
-              process.env.KAFKA_TOPIC_PARTITIONS ?? 1,
-            ),
-            replicationFactor: Number(
-              process.env.KAFKA_TOPIC_REPLICATION ?? 1,
-            ),
+            numPartitions: Number(process.env.KAFKA_TOPIC_PARTITIONS ?? 1),
+            replicationFactor: Number(process.env.KAFKA_TOPIC_REPLICATION ?? 1),
           },
         ],
       });
