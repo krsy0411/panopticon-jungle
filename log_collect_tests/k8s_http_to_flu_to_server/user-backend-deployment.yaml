@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: board-backend
+  labels:
+    app: board
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: board
+  template:
+    metadata:
+      labels:
+        app: board
+    spec:
+      containers:
+        - name: nestjs
+          image: nestjs-board:latest
+          imagePullPolicy: Never # Kind에서 로컬 이미지 사용
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: board-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: board-service
+spec:
+  selector:
+    app: board
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: ClusterIP
