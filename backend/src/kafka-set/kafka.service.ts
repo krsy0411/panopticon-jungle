@@ -5,6 +5,8 @@ import {
   OnModuleInit,
 } from "@nestjs/common";
 import { Consumer, Kafka, logLevel } from "kafkajs";
+import { LogService } from "../logs/logs.service";
+import type { CreateLogDto } from "../logs/dto/create-logs.dto";
 
 const DEFAULT_CLIENT_ID = "panopticon-backend";
 const DEFAULT_BROKERS = ["localhost:9092"];
@@ -20,7 +22,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   private readonly enabled: boolean;
   private consumer: Consumer | null = null;
 
-  constructor() {
+  constructor(private readonly logService: LogService) {
     //kafka 클라이언트 준비
     const brokersEnv = process.env.KAFKA_BROKERS;
     const brokers = brokersEnv
@@ -53,6 +55,36 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       this.logger.log("Kafka consumer disabled in test environment");
       return;
     }
+
+    // 토픽 자동 생성
+    const admin = this.kafka.admin();
+    await admin.connect();
+    try {
+      const created = await admin.createTopics({
+        waitForLeaders: true,
+        topics: [
+          {
+            topic: this.topic,
+            numPartitions: Number(
+              process.env.KAFKA_TOPIC_PARTITIONS ?? 1,
+            ),
+            replicationFactor: Number(
+              process.env.KAFKA_TOPIC_REPLICATION ?? 1,
+            ),
+          },
+        ],
+      });
+      if (created) {
+        this.logger.log(`Kafka topic ensured: ${this.topic}`);
+      }
+    } catch (error) {
+      this.logger.debug(
+        `Kafka topic creation skipped: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      await admin.disconnect();
+    } // nestjs 서버 정상 구동 위함. 나중에 삭제
+
     //컨슈머 인스턴스 생성
     this.consumer = this.kafka.consumer({
       groupId: this.groupId,
@@ -77,30 +109,38 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
           if (!rawValue) {
             this.logger.warn("Received Kafka message without payload");
-            return Promise.resolve();
+            return;
           }
 
           try {
-            const parsed: unknown = JSON.parse(rawValue);
-            this.logger.log(
-              `Consumed log (topic=${topic}, partition=${partition}): ${JSON.stringify(parsed)}`,
-            );
+            const parsed = JSON.parse(rawValue) as CreateLogDto;
+            if (parsed && typeof parsed === "object") {
+              await this.logService.ingest(parsed, {
+                remoteAddress: null,
+                userAgent: null,
+              });
+              this.logger.debug(
+                `Kafka log stored (topic=${topic}, partition=${partition})`,
+              );
+            } else {
+              this.logger.warn(
+                `Kafka message is not an object, skip storing: ${rawValue}`,
+              );
+            }
           } catch (error) {
             if (error instanceof Error) {
               this.logger.error(
-                `Failed to parse Kafka message: ${rawValue}`,
+                `Failed to process Kafka message: ${rawValue}`,
                 error.stack,
               );
             } else {
               this.logger.error(
-                `Failed to parse Kafka message: ${rawValue}; reason=${String(
+                `Failed to process Kafka message: ${rawValue}; reason=${String(
                   error,
                 )}`,
               );
             }
           }
-
-          return Promise.resolve();
         },
       })
       .catch((error) => {
