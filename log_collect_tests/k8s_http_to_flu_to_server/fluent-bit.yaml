@@ -48,7 +48,7 @@ data:
 
     [INPUT]
         Name              tail
-        Path              /var/log/containers/*board*.log
+        Path              /var/log/containers/*log-generator*.log
         Parser            docker
         Tag               kube.backend.*
         Refresh_Interval  5
@@ -75,7 +75,7 @@ data:
         Match             *
         Host              log-collector-service
         Port              3001
-        URI               /api/v1/logs
+        URI               /logs
         Format            json
         tls               Off
 
