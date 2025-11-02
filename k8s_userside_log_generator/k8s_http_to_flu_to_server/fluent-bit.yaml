@@ -99,7 +99,7 @@ data:
     [OUTPUT]
         Name              kafka
         Match             *
-        Brokers           localhost:9092
+        Brokers           172.21.100.253:9092
         Topics            logs
         Format            json
 

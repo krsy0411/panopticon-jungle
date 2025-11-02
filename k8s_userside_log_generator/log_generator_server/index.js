@@ -22,7 +22,7 @@ app.get("/api/users/:id", async (req, res) => {
   const { id } = req.params;
   const startTime = Date.now();
 
-  console.log(`[GET] /api/users/${id} - Request received`);
+  // console.log(`[GET] /api/users/${id} - Request received`);
 
   // 간단한 응답 데이터
   const userData = {
@@ -46,7 +46,7 @@ app.post("/api/users", async (req, res) => {
   const startTime = Date.now();
   const { name, email } = req.body;
 
-  console.log("[POST] /api/users - Request received", { name, email });
+  // console.log("[POST] /api/users - Request received", { name, email });
 
   // 간단한 응답 데이터
   const newUser = {
