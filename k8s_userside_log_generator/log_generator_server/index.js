@@ -22,8 +22,8 @@ app.get("/api/users/:id", async (req, res) => {
   const { id } = req.params;
   const startTime = Date.now();
 
-  console.log(`[GET] /api/users/${id} - Request received`);
-
+  // console.log(`[GET] /api/users/${id} - Request received`);
+  console.log("로그 잘 간다. 이건 단순콘솔이다.");
   // 간단한 응답 데이터
   const userData = {
     id: parseInt(id),
@@ -46,7 +46,7 @@ app.post("/api/users", async (req, res) => {
   const startTime = Date.now();
   const { name, email } = req.body;
 
-  console.log("[POST] /api/users - Request received", { name, email });
+  // console.log("[POST] /api/users - Request received", { name, email });
 
   // 간단한 응답 데이터
   const newUser = {
