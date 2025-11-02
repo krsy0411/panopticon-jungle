@@ -23,7 +23,7 @@ app.get("/api/users/:id", async (req, res) => {
   const startTime = Date.now();
 
   // console.log(`[GET] /api/users/${id} - Request received`);
-
+  console.log("로그 잘 간다. 이건 단순콘솔이다.");
   // 간단한 응답 데이터
   const userData = {
     id: parseInt(id),
