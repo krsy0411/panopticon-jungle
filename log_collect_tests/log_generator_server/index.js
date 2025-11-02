@@ -5,6 +5,9 @@ const morgan = require("morgan");
 const app = express();
 const PORT = 3000;
 
+// 서버 고유 이름 (난수 생성)
+const SERVER_NAME = `server-${Math.random().toString(36).substring(2, 9)}`;
+
 // Middleware
 app.use(express.json());
 app.use(morgan("dev"));
@@ -62,6 +65,21 @@ app.post("/api/users", async (req, res) => {
   });
 });
 
+app.get("/api/autolog", async (req, res) => {
+  let count = 0;
+  const interval = setInterval(() => {
+    console.log(`[${new Date().toISOString()}] ${SERVER_NAME}`);
+    count++;
+    if (count >= 10) {
+      clearInterval(interval);
+    }
+  }, 1000);
+  res.status(201).json({
+    success: true,
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`\n🚀 Log Generator Server is running on port ${PORT}`);
+  console.log(`📛 Server Name: ${SERVER_NAME}\n`);
 });
