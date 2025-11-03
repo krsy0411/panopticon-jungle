@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Auth from "@/components/features/Auth";
 import { Toaster } from "@/components/ui/sonner";
 
+// 로그인 페이지 현재는 안씀
 export default function Page() {
   const router = useRouter();
   const onSuccess = () => {
