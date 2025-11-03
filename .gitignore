@@ -39,6 +39,8 @@ backend/node_modules/
 backend/coverage/
 backend/logs/
 backend/*.log
+!backend/src/logs/
+!backend/src/logs/**
 
 # Frontend (Next.js)
 frontend/node_modules/
@@ -61,6 +63,8 @@ k8s-log-generator/*.log
 # Database & Logs
 *.log
 logs/
+!backend/src/logs/
+!backend/src/logs/**
 
 # Temporary Files
 *.tmp
