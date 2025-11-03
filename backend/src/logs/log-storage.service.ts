@@ -29,8 +29,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
       process.env.ELASTICSEARCH_DATA_STREAM_TEMPLATE ??
       `${this.dataStream}-template`;
     this.ilmPolicyName =
-      process.env.ELASTICSEARCH_ILM_POLICY ??
-      `${this.dataStream}-ilm-policy`;
+      process.env.ELASTICSEARCH_ILM_POLICY ?? `${this.dataStream}-ilm-policy`;
 
     this.client = new Client({ node });
   }
@@ -57,10 +56,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.client.ilm.getLifecycle({ name: this.ilmPolicyName });
     } catch (error) {
-      if (
-        error instanceof errors.ResponseError &&
-        error.statusCode === 404
-      ) {
+      if (error instanceof errors.ResponseError && error.statusCode === 404) {
         await this.client.ilm.putLifecycle({
           name: this.ilmPolicyName,
           policy: {
@@ -95,10 +91,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         name: this.templateName,
       });
     } catch (error) {
-      if (
-        error instanceof errors.ResponseError &&
-        error.statusCode === 404
-      ) {
+      if (error instanceof errors.ResponseError && error.statusCode === 404) {
         await this.client.indices.putIndexTemplate({
           name: this.templateName,
           index_patterns: [this.dataStream],
@@ -134,10 +127,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.client.indices.getDataStream({ name: this.dataStream });
     } catch (error) {
-      if (
-        error instanceof errors.ResponseError &&
-        error.statusCode === 404
-      ) {
+      if (error instanceof errors.ResponseError && error.statusCode === 404) {
         await this.client.indices.createDataStream({
           name: this.dataStream,
         });
