@@ -95,12 +95,20 @@ data:
     #     Format            json
     #     tls               Off
 
-    # 카프카 서버로 날리는 설정
+    # 카프카 서버로 날리는 설정 - Ingress 로그 (http 토픽)
     [OUTPUT]
         Name              kafka
-        Match             *
+        Match             kube.ingress.*
         Brokers           172.21.100.253:9092
-        Topics            logs
+        Topics            http
+        Format            json
+
+    # 카프카 서버로 날리는 설정 - Backend 로그 (app 토픽)
+    [OUTPUT]
+        Name              kafka
+        Match             kube.backend.*
+        Brokers           172.21.100.253:9092
+        Topics            app
         Format            json
 
   # timestamp 하나 더 추가

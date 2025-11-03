@@ -68,11 +68,11 @@ echo ""
 echo "🔨 Docker 이미지 빌드 중..."
 
 echo "  - log-collector 이미지 빌드..."
-cd "$PROJECT_ROOT/log_collect_tests/log_collect_server"
+cd "$PROJECT_ROOT/k8s_userside_log_generator/log_collect_server"
 docker build -t log-collector:latest . -q
 
 echo "  - log-generator 이미지 빌드..."
-cd "$PROJECT_ROOT/log_collect_tests/log_generator_server"
+cd "$PROJECT_ROOT/k8s_userside_log_generator/log_generator_server"
 docker build -t log-generator:latest . -q
 
 echo "✅ Docker 이미지 빌드 완료"
