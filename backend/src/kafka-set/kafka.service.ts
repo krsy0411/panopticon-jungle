@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import {
   Injectable,
   Logger,
@@ -6,6 +9,7 @@ import {
 } from "@nestjs/common";
 import { Consumer, Kafka, logLevel } from "kafkajs";
 import { LogService } from "../logs/logs.service";
+import { MetricsAggregatorService } from "../metrics/metrics-aggregator.service";
 import type { CreateLogDto } from "../logs/dto/create-logs.dto";
 
 const DEFAULT_CLIENT_ID = "panopticon-backend";
@@ -22,7 +26,10 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   private readonly enabled: boolean;
   private consumer: Consumer | null = null;
 
-  constructor(private readonly logService: LogService) {
+  constructor(
+    private readonly logService: LogService,
+    private readonly metricsAggregator: MetricsAggregatorService,
+  ) {
     //kafka 클라이언트 준비
     const brokersEnv = process.env.KAFKA_BROKERS;
     const brokers = brokersEnv
@@ -111,10 +118,15 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
           try {
             const parsed = JSON.parse(rawValue) as CreateLogDto;
             if (parsed && typeof parsed === "object") {
+              // 1. 로그 저장
               await this.logService.ingest(parsed, {
                 remoteAddress: null,
                 userAgent: null,
               });
+
+              // 2. 메트릭 추출 및 저장 (논블로킹)
+              this.extractAndSaveMetric(parsed);
+
               this.logger.debug(
                 `Kafka log stored (topic=${topic}, partition=${partition})`,
               );
@@ -146,6 +158,101 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
           this.logger.error(`Kafka consumer run failed: ${String(error)}`);
         }
       });
+  }
+
+  /**
+   * 로그에서 메트릭 추출 및 저장 (논블로킹)
+   * API 메트릭과 시스템 메트릭을 구분하여 처리
+   */
+  private extractAndSaveMetric(log: CreateLogDto): void {
+    const logData = log as any;
+
+    // 1. API 메트릭 추출 (latency, status, endpoint)
+    if (logData.latency || logData.status || logData.endpoint) {
+      const apiMetric = {
+        service: log.service,
+        endpoint: logData.endpoint || undefined,
+        method: logData.method || undefined,
+        latency: logData.latency ? parseFloat(logData.latency) : undefined,
+        status: logData.status ? parseInt(logData.status) : undefined,
+        timestamp: log.timestamp
+          ? new Date(log.timestamp).getTime()
+          : Date.now(),
+      };
+
+      // API 메트릭 저장 (논블로킹)
+      this.metricsAggregator.addApiMetric(apiMetric).catch((err) => {
+        this.logger.error(
+          `Failed to save API metric for ${log.service}`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      });
+    }
+
+    // 2. 시스템 메트릭 추출 (CPU, 메모리 등)
+    if (
+      logData.cpuUsagePercent !== undefined ||
+      logData.cpu_usage_percent !== undefined ||
+      logData.memoryUsagePercent !== undefined ||
+      logData.memory_usage_percent !== undefined
+    ) {
+      const systemMetric = {
+        service: log.service,
+        timestamp: log.timestamp
+          ? new Date(log.timestamp).getTime()
+          : Date.now(),
+        podName: logData.podName || logData.pod_name || undefined,
+        nodeName: logData.nodeName || logData.node_name || undefined,
+        namespace: logData.namespace || undefined,
+
+        // CPU (camelCase와 snake_case 모두 지원)
+        cpuUsagePercent:
+          logData.cpuUsagePercent ?? logData.cpu_usage_percent ?? undefined,
+        cpuCoresUsed:
+          logData.cpuCoresUsed ?? logData.cpu_cores_used ?? undefined,
+
+        // 메모리
+        memoryUsageBytes:
+          logData.memoryUsageBytes ?? logData.memory_usage_bytes ?? undefined,
+        memoryUsagePercent:
+          logData.memoryUsagePercent ??
+          logData.memory_usage_percent ??
+          undefined,
+        memoryLimitBytes:
+          logData.memoryLimitBytes ?? logData.memory_limit_bytes ?? undefined,
+
+        // 디스크
+        diskUsagePercent:
+          logData.diskUsagePercent ?? logData.disk_usage_percent ?? undefined,
+        diskUsageBytes:
+          logData.diskUsageBytes ?? logData.disk_usage_bytes ?? undefined,
+        diskIoReadBytes:
+          logData.diskIoReadBytes ?? logData.disk_io_read_bytes ?? undefined,
+        diskIoWriteBytes:
+          logData.diskIoWriteBytes ?? logData.disk_io_write_bytes ?? undefined,
+
+        // 네트워크
+        networkRxBytes:
+          logData.networkRxBytes ?? logData.network_rx_bytes ?? undefined,
+        networkTxBytes:
+          logData.networkTxBytes ?? logData.network_tx_bytes ?? undefined,
+        networkRxPackets:
+          logData.networkRxPackets ?? logData.network_rx_packets ?? undefined,
+        networkTxPackets:
+          logData.networkTxPackets ?? logData.network_tx_packets ?? undefined,
+
+        // 메타데이터
+        metadata: logData.metadata || undefined,
+      };
+
+      // 시스템 메트릭 저장 (논블로킹)
+      this.metricsAggregator.addSystemMetric(systemMetric).catch((err) => {
+        this.logger.error(
+          `Failed to save system metric for ${log.service}`,
+          err instanceof Error ? err.stack : String(err),
+        );
+      });
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
