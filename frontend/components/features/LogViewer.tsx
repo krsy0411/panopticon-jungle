@@ -192,7 +192,9 @@ export default function LogViewer() {
 
             <Select
               value={filters.level}
-              onValueChange={(value) => setFilters({ ...filters, level: value })}
+              onValueChange={(value) =>
+                setFilters({ ...filters, level: value })
+              }
             >
               <SelectTrigger className="w-full md:w-32">
                 <SelectValue placeholder="Level" />
@@ -254,12 +256,18 @@ export default function LogViewer() {
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${getLevelDot(log.level)}`}></div>
-                          <span className={`text-xs font-medium ${
-                            log.level === "ERROR" ? "text-red-700" :
-                            log.level === "WARN" ? "text-yellow-700" :
-                            "text-blue-700"
-                          }`}>
+                          <div
+                            className={`w-2 h-2 rounded-full ${getLevelDot(log.level)}`}
+                          ></div>
+                          <span
+                            className={`text-xs font-medium ${
+                              log.level === "ERROR"
+                                ? "text-red-700"
+                                : log.level === "WARN"
+                                  ? "text-yellow-700"
+                                  : "text-blue-700"
+                            }`}
+                          >
                             {log.level}
                           </span>
                         </div>
@@ -267,9 +275,7 @@ export default function LogViewer() {
                       <td className="py-3 px-4 text-gray-700 font-mono text-xs">
                         {log.service}
                       </td>
-                      <td className="py-3 px-4 text-gray-900">
-                        {log.message}
-                      </td>
+                      <td className="py-3 px-4 text-gray-900">{log.message}</td>
                       <td className="py-3 px-4 text-right">
                         <Button size="sm" variant="ghost" className="text-xs">
                           View
@@ -304,7 +310,9 @@ export default function LogViewer() {
                 {/* 메타데이터 */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <p className="text-xs text-gray-500 font-medium">Timestamp</p>
+                    <p className="text-xs text-gray-500 font-medium">
+                      Timestamp
+                    </p>
                     <p className="text-sm font-mono text-gray-900">
                       {new Date(selectedLog.timestamp).toISOString()}
                     </p>
@@ -317,12 +325,17 @@ export default function LogViewer() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-gray-500 font-medium">Service</p>
-                    <p className="text-sm font-mono text-gray-900">{selectedLog.service}</p>
+                    <p className="text-sm font-mono text-gray-900">
+                      {selectedLog.service}
+                    </p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs text-gray-500 font-medium">Trace ID</p>
+                    <p className="text-xs text-gray-500 font-medium">
+                      Trace ID
+                    </p>
                     <p className="text-sm font-mono text-blue-600">
-                      {(selectedLog.details as {trace_id?: string}).trace_id || "N/A"}
+                      {(selectedLog.details as { trace_id?: string })
+                        .trace_id || "N/A"}
                     </p>
                   </div>
                 </div>
@@ -339,7 +352,9 @@ export default function LogViewer() {
 
                 {/* JSON 상세 */}
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500 font-medium">Full Details (JSON)</p>
+                  <p className="text-xs text-gray-500 font-medium">
+                    Full Details (JSON)
+                  </p>
                   <pre className="text-xs p-4 bg-gray-900 text-green-400 rounded-lg overflow-x-auto font-mono leading-relaxed">
                     {JSON.stringify(selectedLog.details, null, 2)}
                   </pre>
