@@ -1,5 +1,6 @@
 services:
   kafka:
+    container_name: panopticon-kafka
     image: apache/kafka:3.7.0
     environment:
       KAFKA_NODE_ID: 1
