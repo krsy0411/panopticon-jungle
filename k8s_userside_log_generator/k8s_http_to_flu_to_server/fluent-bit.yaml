@@ -55,17 +55,17 @@ data:
         Mem_Buf_Limit     5MB
 
     # ingress에 source, type 추가
-    [FILTER]
-        Name    modify
-        Match   kube.ingress.*
-        Add     source ingress
-        Add     log_type nginx
+    # [FILTER]
+    #     Name    modify
+    #     Match   kube.ingress.*
+    #     Add     source ingress
+    #     Add     log_type nginx
     # backend에 source, type 추가
-    [FILTER]
-        Name    modify
-        Match   kube.backend.*
-        Add     source backend
-        Add     log_type application
+    # [FILTER]
+    #     Name    modify
+    #     Match   kube.backend.*
+    #     Add     source backend
+    #     Add     log_type application
 
     # 쿠버네티스 메타데이터
     # [FILTER]
