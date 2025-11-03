@@ -19,10 +19,18 @@ export class LogConsumer {
 
     try {
       const log = this.toLogDto(value);
-      await this.logService.ingest(log, { remoteAddress: null, userAgent: null });
-      this.logger.log(`Log message ingested (topic=${context.getTopic()}, partition=${context.getPartition()})`);
+      await this.logService.ingest(log, {
+        remoteAddress: null,
+        userAgent: null,
+      });
+      this.logger.log(
+        `Log message ingested (topic=${context.getTopic()}, partition=${context.getPartition()})`,
+      );
     } catch (error) {
-      this.logger.error("Failed to process Kafka log message", error instanceof Error ? error.stack : String(error));
+      this.logger.error(
+        "Failed to process Kafka log message",
+        error instanceof Error ? error.stack : String(error),
+      );
       throw error;
     }
   }
@@ -39,7 +47,9 @@ export class LogConsumer {
     }
 
     if (ArrayBuffer.isView(resolved)) {
-      return JSON.parse(Buffer.from(resolved.buffer).toString()) as CreateLogDto;
+      return JSON.parse(
+        Buffer.from(resolved.buffer).toString(),
+      ) as CreateLogDto;
     }
 
     if (resolved && typeof resolved === "object") {

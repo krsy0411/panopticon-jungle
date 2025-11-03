@@ -23,24 +23,23 @@ async function bootstrap(): Promise<void> {
   const clientId = process.env.KAFKA_CLIENT_ID ?? "log-consumer";
   const groupId = process.env.KAFKA_CONSUMER_GROUP ?? "log-consumer-group";
 
-  const app =
-    await NestFactory.createMicroservice<MicroserviceOptions>(
-      LogConsumerModule,
-      {
-        transport: Transport.KAFKA,
-        options: {
-          client: {
-            clientId,
-            brokers,
-          },
-          consumer: {
-            groupId,
-            allowAutoTopicCreation:
-              process.env.KAFKA_ALLOW_AUTO_TOPIC_CREATION !== "false",
-          },
+  const app = await NestFactory.createMicroservice<MicroserviceOptions>(
+    LogConsumerModule,
+    {
+      transport: Transport.KAFKA,
+      options: {
+        client: {
+          clientId,
+          brokers,
+        },
+        consumer: {
+          groupId,
+          allowAutoTopicCreation:
+            process.env.KAFKA_ALLOW_AUTO_TOPIC_CREATION !== "false",
         },
       },
-    );
+    },
+  );
 
   await app.listen();
 }
