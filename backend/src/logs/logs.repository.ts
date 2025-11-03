@@ -1,5 +1,5 @@
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
-import { Client } from "@elastic/elasticsearch";
+import { Injectable, Logger } from "@nestjs/common";
+import { LogStorageService } from "./log-storage.service";
 
 export interface LogDocument {
   "@timestamp": string;
@@ -22,21 +22,23 @@ export interface LogSearchResult extends LogDocument {
 }
 
 @Injectable()
-export class LogRepository implements OnModuleDestroy {
+export class LogRepository {
   private readonly logger = new Logger(LogRepository.name);
-  private readonly client: Client;
-  private readonly index: string;
 
-  constructor() {
-    const node = process.env.ELASTICSEARCH_NODE ?? "http://localhost:9200";
-    this.index = process.env.ELASTICSEARCH_INDEX ?? "app-logs";
-    this.client = new Client({ node });
+  constructor(private readonly storage: LogStorageService) {}
+
+  private get client() {
+    return this.storage.getClient();
+  }
+
+  private get dataStream() {
+    return this.storage.getDataStream();
   }
 
   async save(document: LogDocument): Promise<void> {
     try {
       await this.client.index({
-        index: this.index,
+        index: this.dataStream,
         document,
       });
     } catch (error) {
@@ -57,7 +59,7 @@ export class LogRepository implements OnModuleDestroy {
     }
 
     if (level) {
-      must.push({ term: { level } });
+      must.push({ term: { "level.keyword": level } });
     }
 
     const query = must.length > 0 ? { bool: { must } } : { match_all: {} };
@@ -65,7 +67,7 @@ export class LogRepository implements OnModuleDestroy {
     const size = limit ?? Number(process.env.LOG_LIST_DEFAULT_LIMIT ?? 50);
 
     const response = await this.client.search<LogDocument>({
-      index: this.index,
+      index: this.dataStream,
       size,
       sort: [{ "@timestamp": { order: "desc" as const } }],
       query,
@@ -80,9 +82,5 @@ export class LogRepository implements OnModuleDestroy {
         id: hit._id,
         ...hit._source,
       }));
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.client.close();
   }
 }
