@@ -177,6 +177,7 @@ export default function LogViewer() {
         data.logs.length === LIMIT && data.page * data.limit < data.total,
       );
       setLogs((prev) => (replace ? data.logs : [...prev, ...data.logs]));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
       setError(e?.message ?? "unknown error");
     } finally {
