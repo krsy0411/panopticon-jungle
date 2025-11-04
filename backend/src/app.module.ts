@@ -4,9 +4,11 @@ import { AppLogModule } from "./logs/app/app-log.module";
 import { HttpLogModule } from "./logs/http/http-log.module";
 import { LogInfrastructureModule } from "./logs/logs.module";
 import { MetricsModule } from "./metrics/metrics.module";
+import { NotificationModule } from "./notification/notification.module";
 
 @Module({
   imports: [
+    NotificationModule,
     LogInfrastructureModule,
     AppLogModule,
     HttpLogModule,
