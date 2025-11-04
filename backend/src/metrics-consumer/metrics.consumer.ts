@@ -7,7 +7,7 @@ import type { CreateSystemMetricDto } from "../metrics/system/dto/create-system-
 /**
  * 메트릭 전용 컨슈머
  * API 메트릭과 시스템 메트릭만 처리하며,
- * 실시간 집계와 Redis 저장을 담당합니다
+ * 실시간 집계를 담당합니다
  */
 @Controller()
 export class MetricsConsumer {
@@ -18,8 +18,6 @@ export class MetricsConsumer {
   /**
    * API 메트릭 이벤트 처리
    * - Latency, Error Rate, Traffic (TPS) 추적
-   * - 실시간 Redis 집계 (1분 윈도우)
-   * - SLO 체크 및 알림
    */
   @EventPattern(process.env.KAFKA_API_METRICS_TOPIC ?? "metrics.api")
   async handleApiMetricEvent(@Ctx() context: KafkaContext): Promise<void> {
@@ -41,7 +39,7 @@ export class MetricsConsumer {
           `status=${metric.statusCode} timestamp=${new Date(metric.time || Date.now()).toISOString()}`,
       );
 
-      // 실시간 집계 및 저장 (Redis + TimescaleDB)
+      // 실시간 집계 및 저장 (TimescaleDB)
       await this.metricsAggregator.saveApiMetric(metric);
 
       const processingTime = Date.now() - startTime;
@@ -84,7 +82,7 @@ export class MetricsConsumer {
           `timestamp=${new Date(metric.time || Date.now()).toISOString()}`,
       );
 
-      // 실시간 집계 및 저장 (Redis + TimescaleDB)
+      // 실시간 집계 및 저장 (TimescaleDB)
       await this.metricsAggregator.saveSystemMetric(metric);
 
       const processingTime = Date.now() - startTime;
