@@ -148,14 +148,14 @@ data:
         Name              kafka
         Match             kube.ingress.*
         Brokers           172.21.100.253:9092
-        Topics            http
+        Topics            logs.http
         Format            json
 
     [OUTPUT]
         Name              kafka
         Match             kube.backend.*
         Brokers           172.21.100.253:9092
-        Topics            app
+        Topics            logs.app
         Format            json
 
     [OUTPUT]
