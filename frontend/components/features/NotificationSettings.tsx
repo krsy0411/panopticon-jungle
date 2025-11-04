@@ -94,7 +94,7 @@ export default function NotificationSettings() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>발신자 이름</Label>
-                  <Input placeholder="SRE Platform" className="mt-1.5" />
+                  <Input placeholder="Panopticon" className="mt-1.5" />
                 </div>
                 <div>
                   <Label>발신 주소</Label>
