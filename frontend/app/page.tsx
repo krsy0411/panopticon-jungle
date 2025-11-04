@@ -1,5 +1,9 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useRouter } from "next/navigation";
+import Landing from "@/components/features/Landing";
 
 export default function Page() {
-  redirect("/dashboard");
+  const router = useRouter();
+  return <Landing onLoginClick={() => router.push("/login")} />;
 }

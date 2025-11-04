@@ -82,14 +82,25 @@ const generateDummyLogs = (): Log[] => {
 };
 
 export default function LogViewer() {
-  const [allLogs] = useState<Log[]>(generateDummyLogs());
+  const [allLogs, setAllLogs] = useState<Log[]>(generateDummyLogs());
   const [filteredLogs, setFilteredLogs] = useState<Log[]>(allLogs);
   const [selectedLog, setSelectedLog] = useState<Log | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
     level: "all",
     service: "all",
   });
+
+  // Last updated 시간 상태
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLastUpdated(new Date());
+    }, 5000); // 5초마다 갱신
+    return () => clearInterval(interval);
+  }, []);
 
   // 필터 적용
   useEffect(() => {
@@ -150,8 +161,8 @@ export default function LogViewer() {
               Real-time log streaming and analysis
             </p>
           </div>
-          <div className="text-xs text-gray-500">
-            {filteredLogs.length} logs
+          <div className="text-xs text-gray-500" suppressHydrationWarning>
+            Last updated: {lastUpdated.toLocaleTimeString("ko-KR")}
           </div>
         </div>
 
@@ -209,11 +220,18 @@ export default function LogViewer() {
 
             <Button
               variant="outline"
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                setIsRefreshing(true);
+                setAllLogs(generateDummyLogs());
+                setIsRefreshing(false);
+              }}
+              disabled={isRefreshing}
               className="w-full md:w-auto"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              {isRefreshing ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
         </Card>

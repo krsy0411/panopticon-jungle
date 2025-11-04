@@ -1,9 +1,18 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import type { CreateHttpLogDto } from "../dto/create-http-log.dto";
-import type { HttpLogDocument } from "./http-log.repository";
+import type {
+  HttpLogDocument,
+  HttpStatusCodeCountBucket,
+} from "./http-log.repository";
 import { HttpLogRepository } from "./http-log.repository";
 import type { LogSearchResult } from "../base-log.repository";
 import { ListHttpLogsQueryDto } from "../dto/list-http-logs-query.dto";
+import { HttpStatusCodeCountsQueryDto } from "../dto/http-status-code-counts-query.dto";
+
+export interface HttpStatusCodeCountsResponse {
+  interval: string;
+  buckets: HttpStatusCodeCountBucket[];
+}
 
 @Injectable()
 export class HttpLogService {
@@ -46,6 +55,34 @@ export class HttpLogService {
     });
   }
 
+  async getStatusCodeCounts(
+    query: HttpStatusCodeCountsQueryDto,
+  ): Promise<HttpStatusCodeCountsResponse> {
+    const end = query.end
+      ? HttpLogService.parseDateOrThrow(query.end, "end")
+      : new Date();
+    const start = query.start
+      ? HttpLogService.parseDateOrThrow(query.start, "start")
+      : new Date(end.getTime() - 24 * 60 * 60 * 1000);
+
+    if (start.getTime() >= end.getTime()) {
+      throw new BadRequestException("start must be earlier than end");
+    }
+
+    const interval = query.interval ?? "1h";
+
+    const buckets = await this.repository.aggregateStatusCodeCounts({
+      start: start.toISOString(),
+      end: end.toISOString(),
+      interval,
+    });
+
+    return {
+      interval,
+      buckets,
+    };
+  }
+
   private static toInteger(value: unknown): number | null {
     if (value == null) {
       return null;
@@ -78,5 +115,15 @@ export class HttpLogService {
     }
 
     return null;
+  }
+
+  private static parseDateOrThrow(value: string, label: string): Date {
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`Invalid ${label} timestamp`);
+    }
+
+    return parsed;
   }
 }
