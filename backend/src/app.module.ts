@@ -8,6 +8,7 @@ import { NotificationModule } from "./notification/notification.module";
 
 @Module({
   imports: [
+    NotificationModule,
     LogInfrastructureModule,
     AppLogModule,
     HttpLogModule,
