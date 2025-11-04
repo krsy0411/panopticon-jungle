@@ -52,7 +52,7 @@ export class SystemMetricsRepository implements OnModuleInit {
     // PostgreSQL/TimescaleDB 연결 설정
     this.pool = new Pool({
       host: process.env.TIMESCALE_HOST || "localhost",
-      port: parseInt(process.env.TIMESCALE_PORT || "5432"),
+      port: parseInt(process.env.TIMESCALE_PORT || "5433"),
       database: process.env.TIMESCALE_DATABASE || "panopticon",
       user: process.env.TIMESCALE_USER || "admin",
       password: process.env.TIMESCALE_PASSWORD || "admin123",

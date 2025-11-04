@@ -1,8 +1,6 @@
 import { Controller, Logger } from "@nestjs/common";
 import { Ctx, EventPattern, KafkaContext } from "@nestjs/microservices";
-import { LogService } from "../logs/logs.service";
 import { MetricsAggregatorService } from "../metrics/services/metrics-aggregator.service";
-import type { CreateLogDto } from "../logs/dto/create-logs.dto";
 import type { CreateApiMetricDto } from "../metrics/api/dto/create-api-metric.dto";
 import type { CreateSystemMetricDto } from "../metrics/system/dto/create-system-metric.dto";
 
@@ -14,43 +12,16 @@ import type { CreateSystemMetricDto } from "../metrics/system/dto/create-system-
 export class EventConsumer {
   private readonly logger = new Logger(EventConsumer.name);
 
-  constructor(
-    private readonly logService: LogService,
-    private readonly metricsAggregator: MetricsAggregatorService,
-  ) {}
-
-  /**
-   * 로그 이벤트 처리
-   */
-  @EventPattern(process.env.KAFKA_LOG_TOPIC ?? "logs")
-  async handleLogEvent(@Ctx() context: KafkaContext): Promise<void> {
-    const value = context.getMessage().value;
-    if (value == null) {
-      this.logger.warn("Kafka message without payload, skip");
-      return;
-    }
-
-    try {
-      const log = this.toLogDto(value);
-      await this.logService.ingest(log, {
-        remoteAddress: null,
-        userAgent: null,
-      });
-      this.logger.log(
-        `Log ingested (topic=${context.getTopic()}, partition=${context.getPartition()})`,
-      );
-    } catch (error) {
-      this.logger.error(
-        "Failed to process log event",
-        error instanceof Error ? error.stack : String(error),
-      );
-    }
-  }
+  constructor(private readonly metricsAggregator: MetricsAggregatorService) {}
 
   /**
    * API 메트릭 이벤트 처리
    */
-  @EventPattern(process.env.KAFKA_API_METRICS_TOPIC ?? "metrics.api")
+  @EventPattern(
+    process.env.KAFKA_EVENT_CONSUMER_API_TOPIC ??
+      process.env.KAFKA_API_METRICS_TOPIC ??
+      "metrics.api",
+  )
   async handleApiMetricEvent(@Ctx() context: KafkaContext): Promise<void> {
     const value = context.getMessage().value;
     if (value == null) {
@@ -75,7 +46,11 @@ export class EventConsumer {
   /**
    * 시스템 메트릭 이벤트 처리
    */
-  @EventPattern(process.env.KAFKA_SYSTEM_METRICS_TOPIC ?? "metrics.system")
+  @EventPattern(
+    process.env.KAFKA_EVENT_CONSUMER_SYSTEM_TOPIC ??
+      process.env.KAFKA_SYSTEM_METRICS_TOPIC ??
+      "metrics.system",
+  )
   async handleSystemMetricEvent(@Ctx() context: KafkaContext): Promise<void> {
     const value = context.getMessage().value;
     if (value == null) {
@@ -95,33 +70,6 @@ export class EventConsumer {
         error instanceof Error ? error.stack : String(error),
       );
     }
-  }
-
-  /**
-   * Kafka payload를 LogDto로 변환
-   */
-  private toLogDto(payload: unknown): CreateLogDto {
-    const resolved = this.unwrapValue(payload);
-
-    if (typeof resolved === "string") {
-      return JSON.parse(resolved) as CreateLogDto;
-    }
-
-    if (resolved instanceof Buffer) {
-      return JSON.parse(resolved.toString()) as CreateLogDto;
-    }
-
-    if (ArrayBuffer.isView(resolved)) {
-      return JSON.parse(
-        Buffer.from(resolved.buffer).toString(),
-      ) as CreateLogDto;
-    }
-
-    if (resolved && typeof resolved === "object") {
-      return resolved as CreateLogDto;
-    }
-
-    throw new Error("Unsupported Kafka payload type for log");
   }
 
   /**
