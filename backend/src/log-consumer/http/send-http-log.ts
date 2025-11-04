@@ -18,7 +18,7 @@ async function main(): Promise<void> {
           request_id: "e0ef68f07d57fb758d07478a623c2ee6",
           client_ip: "172.18.0.1",
           method: "GET",
-          path: "/api/users/5555",
+          path: "/api/users/2222",
           status_code: 200,
           request_time: 0.014,
           user_agent: "curl/8.7.1",

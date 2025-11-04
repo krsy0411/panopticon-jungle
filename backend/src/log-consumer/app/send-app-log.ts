@@ -16,7 +16,7 @@ async function main() {
           timestamp: "2024-12-26T12:34:56.123Z",
           service: "payment-service",
           level: "info",
-          message: "test111",
+          message: "test2222",
         }),
       },
     ],

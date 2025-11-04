@@ -1,6 +1,19 @@
-export interface CreateAppLogDto {
+import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+
+export class CreateAppLogDto {
+  @IsOptional()
+  @IsString()
   timestamp?: string;
-  service: string;
-  level: string;
-  message: string;
+
+  @IsString()
+  @IsNotEmpty()
+  service!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  level!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  message!: string;
 }
