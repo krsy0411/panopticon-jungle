@@ -76,7 +76,7 @@ export default function Auth({ onLoginSuccess }: AuthProps) {
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-2">
               <Activity className="w-8 h-8 text-blue-600" />
-              <span className="text-blue-600">SRE Platform</span>
+              <span className="text-blue-600">Panopticon</span>
             </div>
             <p className="text-gray-600">운영 자동화의 새로운 기준</p>
           </div>
