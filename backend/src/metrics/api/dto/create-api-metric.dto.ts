@@ -13,10 +13,11 @@ export class CreateApiMetricDto {
    * 메트릭 수집 시각 (ISO 8601 형식 또는 Unix timestamp)
    * 예: "2025-11-04T12:00:00Z" 또는 1730716800000
    * 미제공시 현재 시각 사용
+   * TimescaleDB의 time 컬럼에 매핑됨
    */
   @IsOptional()
   @IsString()
-  timestamp?: string;
+  time?: string;
 
   /**
    * 서비스명 (예: "user-api", "payment-service")
@@ -43,18 +44,20 @@ export class CreateApiMetricDto {
    * API 응답 시간 (밀리초, 소수점 지원)
    * 예: 125.5 = 125.5ms 소요
    * 4 Golden Signals: Latency
+   * TimescaleDB의 latency_ms 컬럼에 매핑됨
    */
   @IsNumber()
   @IsOptional()
-  latency?: number;
+  latencyMs?: number;
 
   /**
    * HTTP 상태 코드 (예: 200, 404, 500)
    * 4 Golden Signals: Error (status >= 500)
+   * TimescaleDB의 status_code 컬럼에 매핑됨
    */
   @IsNumber()
   @IsOptional()
-  status?: number;
+  statusCode?: number;
 
   /**
    * 추가 메타데이터 (JSON 형식)

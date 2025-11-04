@@ -82,13 +82,13 @@ export class ApiMetricsRepository implements OnModuleInit {
     `;
 
     const values = [
-      new Date(createMetricDto.timestamp || new Date()),
+      new Date(createMetricDto.time || new Date()),
       createMetricDto.service,
       createMetricDto.endpoint || null,
       createMetricDto.method || null,
-      createMetricDto.latency || null,
-      createMetricDto.status || null,
-      createMetricDto.status && createMetricDto.status >= 400 ? 1 : 0,
+      createMetricDto.latencyMs || null,
+      createMetricDto.statusCode || null,
+      createMetricDto.statusCode && createMetricDto.statusCode >= 400 ? 1 : 0,
       1,
     ];
 
@@ -125,13 +125,13 @@ export class ApiMetricsRepository implements OnModuleInit {
 
       for (const metric of metrics) {
         const values = [
-          new Date(metric.timestamp || new Date()),
+          new Date(metric.time || new Date()),
           metric.service,
           metric.endpoint || null,
           metric.method || null,
-          metric.latency || null,
-          metric.status || null,
-          metric.status && metric.status >= 400 ? 1 : 0,
+          metric.latencyMs || null,
+          metric.statusCode || null,
+          metric.statusCode && metric.statusCode >= 400 ? 1 : 0,
           1,
         ];
 

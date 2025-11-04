@@ -115,16 +115,16 @@ export class SystemMetricsRepository implements OnModuleInit {
     `;
 
     const values = [
-      new Date(createMetricDto.timestamp || Date.now()),
+      new Date(createMetricDto.time || Date.now()),
       createMetricDto.service,
       createMetricDto.podName,
       createMetricDto.nodeName || null,
       createMetricDto.namespace || null,
-      createMetricDto.cpu ?? null,
-      createMetricDto.memory ?? null,
-      createMetricDto.disk ?? null,
-      createMetricDto.networkIn ?? null,
-      createMetricDto.networkOut ?? null,
+      createMetricDto.cpuUsagePercent ?? null,
+      createMetricDto.memoryUsageBytes ?? null,
+      createMetricDto.diskUsagePercent ?? null,
+      createMetricDto.networkRxBytes ?? null,
+      createMetricDto.networkTxBytes ?? null,
       createMetricDto.metadata
         ? JSON.stringify(createMetricDto.metadata)
         : null,
@@ -175,16 +175,16 @@ export class SystemMetricsRepository implements OnModuleInit {
 
       for (const metric of metrics) {
         const values = [
-          new Date(metric.timestamp || Date.now()),
+          new Date(metric.time || Date.now()),
           metric.service,
           metric.podName,
           metric.nodeName || null,
           metric.namespace || null,
-          metric.cpu ?? null,
-          metric.memory ?? null,
-          metric.disk ?? null,
-          metric.networkIn ?? null,
-          metric.networkOut ?? null,
+          metric.cpuUsagePercent ?? null,
+          metric.memoryUsageBytes ?? null,
+          metric.diskUsagePercent ?? null,
+          metric.networkRxBytes ?? null,
+          metric.networkTxBytes ?? null,
           metric.metadata ? JSON.stringify(metric.metadata) : null,
         ];
 
