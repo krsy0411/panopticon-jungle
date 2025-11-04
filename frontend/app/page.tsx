@@ -1,9 +1,3 @@
-// import { redirect } from "next/navigation";
-
-// export default function Page() {
-//   redirect("/dashboard");
-// }
-
 'use client'
 
 import { useRouter } from 'next/navigation'
