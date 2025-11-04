@@ -3,41 +3,8 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { Pool, PoolClient } from "pg";
+import { Pool } from "pg";
 import { CreateSystemMetricDto } from "./dto/create-system-metric.dto";
-
-export interface SystemMetricRecord {
-  time: Date;
-  service: string;
-  pod_name: string;
-  node_name?: string;
-  namespace?: string;
-  cpu_usage_percent?: number;
-  memory_usage_bytes?: number;
-  disk_usage_percent?: number;
-  network_rx_bytes?: number;
-  network_tx_bytes?: number;
-  metadata?: Record<string, unknown>;
-}
-
-export interface AggregatedSystemMetric {
-  bucket: Date;
-  service: string;
-  pod_name: string;
-  node_name?: string;
-  avg_cpu_percent?: number;
-  max_cpu_percent?: number;
-  min_cpu_percent?: number;
-  avg_cpu_cores?: number;
-  avg_memory_percent?: number;
-  max_memory_percent?: number;
-  avg_memory_bytes?: number;
-  avg_disk_percent?: number;
-  max_disk_percent?: number;
-  total_network_rx_bytes?: number;
-  total_network_tx_bytes?: number;
-  sample_count: number;
-}
 
 /**
  * 시스템 메트릭 저장소
@@ -142,217 +109,8 @@ export class SystemMetricsRepository implements OnModuleInit {
   }
 
   /**
-   * 배치 저장 (여러 시스템 메트릭 한 번에 저장)
-   */
-  async saveBatch(metrics: CreateSystemMetricDto[]): Promise<void> {
-    if (metrics.length === 0) return;
-
-    const client: PoolClient = await this.pool.connect();
-
-    try {
-      await client.query("BEGIN");
-
-      const query = `
-        INSERT INTO system_metrics (
-          time, service, pod_name, node_name, namespace,
-          cpu_usage_percent, memory_usage_bytes, disk_usage_percent,
-          network_rx_bytes, network_tx_bytes,
-          metadata
-        ) VALUES (
-          $1, $2, $3, $4, $5,
-          $6, $7, $8,
-          $9, $10,
-          $11
-        )
-        ON CONFLICT (time, service, pod_name) DO UPDATE SET
-          cpu_usage_percent = EXCLUDED.cpu_usage_percent,
-          memory_usage_bytes = EXCLUDED.memory_usage_bytes,
-          disk_usage_percent = EXCLUDED.disk_usage_percent,
-          network_rx_bytes = EXCLUDED.network_rx_bytes,
-          network_tx_bytes = EXCLUDED.network_tx_bytes,
-          metadata = EXCLUDED.metadata
-      `;
-
-      for (const metric of metrics) {
-        const values = [
-          new Date(metric.time || Date.now()),
-          metric.service,
-          metric.podName,
-          metric.nodeName || null,
-          metric.namespace || null,
-          metric.cpuUsagePercent ?? null,
-          metric.memoryUsageBytes ?? null,
-          metric.diskUsagePercent ?? null,
-          metric.networkRxBytes ?? null,
-          metric.networkTxBytes ?? null,
-          metric.metadata ? JSON.stringify(metric.metadata) : null,
-        ];
-
-        await client.query(query, values);
-      }
-
-      await client.query("COMMIT");
-      this.logger.debug(
-        `Saved ${metrics.length} system metrics to TimescaleDB`,
-      );
-    } catch (error) {
-      await client.query("ROLLBACK");
-      this.logger.error(
-        "Failed to save batch system metrics",
-        error instanceof Error ? error.stack : String(error),
-      );
-      throw error;
-    } finally {
-      client.release();
-    }
-  }
-
-  /**
-   * 최근 시스템 메트릭 조회
-   */
-  async getRecentMetrics(
-    service: string,
-    limit: number = 100,
-  ): Promise<SystemMetricRecord[]> {
-    const query = `
-      SELECT
-        time, service, pod_name, node_name, namespace,
-        cpu_usage_percent, memory_usage_bytes, disk_usage_percent,
-        network_rx_bytes, network_tx_bytes,
-        metadata
-      FROM system_metrics
-      WHERE service = $1
-      ORDER BY time DESC
-      LIMIT $2
-    `;
-
-    try {
-      const result = await this.pool.query<SystemMetricRecord>(query, [
-        service,
-        limit,
-      ]);
-      return result.rows;
-    } catch (error) {
-      this.logger.error(
-        "Failed to query system metrics",
-        error instanceof Error ? error.stack : String(error),
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Pod별 최근 메트릭 조회
-   */
-  async getRecentMetricsByPod(
-    podName: string,
-    limit: number = 100,
-  ): Promise<SystemMetricRecord[]> {
-    const query = `
-      SELECT
-        time, service, pod_name, node_name, namespace,
-        cpu_usage_percent, memory_usage_bytes, disk_usage_percent,
-        network_rx_bytes, network_tx_bytes,
-        metadata
-      FROM system_metrics
-      WHERE pod_name = $1
-      ORDER BY time DESC
-      LIMIT $2
-    `;
-
-    try {
-      const result = await this.pool.query<SystemMetricRecord>(query, [
-        podName,
-        limit,
-      ]);
-      return result.rows;
-    } catch (error) {
-      this.logger.error(
-        "Failed to query system metrics by pod",
-        error instanceof Error ? error.stack : String(error),
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * 시간 범위별 집계 조회 (연속 집계 뷰 활용)
-   */
-  async getAggregatedMetrics(
-    service: string,
-    startTime: Date,
-    endTime: Date,
-    bucketSize: "1min" | "5min" = "1min",
-  ): Promise<AggregatedSystemMetric[]> {
-    const viewName =
-      bucketSize === "1min" ? "system_metrics_1min" : "system_metrics_5min";
-
-    const query = `
-      SELECT
-        bucket,
-        service,
-        pod_name,
-        node_name,
-        namespace,
-        avg_cpu_usage_percent,
-        max_cpu_usage_percent,
-        avg_cpu_cores_used,
-        avg_memory_usage_bytes,
-        max_memory_usage_bytes,
-        avg_memory_usage_percent,
-        avg_disk_usage_percent,
-        total_network_rx_bytes,
-        total_network_tx_bytes,
-        sample_count
-      FROM ${viewName}
-      WHERE service = $1
-        AND bucket >= $2
-        AND bucket <= $3
-      ORDER BY bucket DESC
-    `;
-
-    try {
-      const result = await this.pool.query<AggregatedSystemMetric>(query, [
-        service,
-        startTime,
-        endTime,
-      ]);
-      return result.rows;
-    } catch (error) {
-      this.logger.error(
-        "Failed to query aggregated system metrics",
-        error instanceof Error ? error.stack : String(error),
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * 활성 서비스 목록 조회
-   */
-  async getActiveServices(since: Date): Promise<string[]> {
-    const query = `
-      SELECT DISTINCT service
-      FROM system_metrics
-      WHERE time >= $1
-      ORDER BY service
-    `;
-
-    try {
-      const result = await this.pool.query<{ service: string }>(query, [since]);
-      return result.rows.map((row) => row.service);
-    } catch (error) {
-      this.logger.error(
-        "Failed to query active services",
-        error instanceof Error ? error.stack : String(error),
-      );
-      throw error;
-    }
-  }
-
-  /**
    * 시계열 데이터 조회 (대시보드용)
-   * - CPU와 메모리 사용률을 시간대별로 집계
+   * - system_metrics와 http_metrics를 LEFT JOIN하여 CPU, 메모리, 요청 수, 에러율 조회
    */
   async getTimeseriesData(
     startTime: Date,
@@ -361,12 +119,14 @@ export class SystemMetricsRepository implements OnModuleInit {
   ): Promise<
     Array<{
       timestamp: Date;
+      requests: number;
+      errors: number;
       cpu: number;
       memory: number;
     }>
   > {
     const query = `
-      WITH time_buckets AS (
+      WITH system_buckets AS (
         SELECT
           time_bucket($1::interval, time) as bucket,
           AVG(cpu_usage_percent) as avg_cpu,
@@ -374,24 +134,41 @@ export class SystemMetricsRepository implements OnModuleInit {
         FROM system_metrics
         WHERE time >= $2 AND time <= $3
         GROUP BY bucket
-        ORDER BY bucket
+      ),
+      http_buckets AS (
+        SELECT
+          time_bucket($1::interval, time) as bucket,
+          SUM(requests) as total_requests,
+          -- 가중 평균으로 에러율 계산
+          SUM(requests * errors) / NULLIF(SUM(requests), 0) as avg_error_rate
+        FROM http_metrics
+        WHERE time >= $2 AND time <= $3
+        GROUP BY bucket
       )
       SELECT
-        bucket as timestamp,
-        COALESCE(ROUND(avg_cpu::numeric, 2), 0) as cpu,
-        COALESCE(ROUND((avg_memory_bytes / (1024.0 * 1024.0 * 1024.0))::numeric, 2), 0) as memory
-      FROM time_buckets
+        COALESCE(s.bucket, h.bucket) as timestamp,
+        COALESCE(h.total_requests, 0) as requests,
+        COALESCE(ROUND(h.avg_error_rate::numeric, 2), 0) as errors,
+        COALESCE(ROUND(s.avg_cpu::numeric, 2), 0) as cpu,
+        COALESCE(ROUND((s.avg_memory_bytes / (1024.0 * 1024.0 * 1024.0))::numeric, 2), 0) as memory
+      FROM system_buckets s
+      FULL OUTER JOIN http_buckets h ON s.bucket = h.bucket
+      ORDER BY timestamp
     `;
 
     try {
       const result = await this.pool.query<{
         timestamp: Date;
+        requests: string;
+        errors: string;
         cpu: string;
         memory: string;
       }>(query, [`${intervalMinutes} minutes`, startTime, endTime]);
 
       return result.rows.map((row) => ({
         timestamp: row.timestamp,
+        requests: Number(row.requests) || 0,
+        errors: Number(row.errors) || 0,
         cpu: Number(row.cpu) || 0,
         memory: Number(row.memory) || 0,
       }));
