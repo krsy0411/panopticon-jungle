@@ -1,3 +1,5 @@
+-- 초기 메트릭 테이블 및 뷰 생성 스크립트 : 이건 문법 공부용 예제이므로, 굳이 실행 안 해봐도 됩니다.
+
 -- TimescaleDB 확장 생성
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
