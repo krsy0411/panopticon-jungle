@@ -81,6 +81,6 @@ export class HttpLogController {
   })
   @Get("status-code-counts")
   async getStatusCodeCounts(@Query() query: HttpStatusCodeCountsQueryDto) {
-    return this.httpLogService.getStatusCodeCounts(query);
+    return await this.httpLogService.getStatusCodeCounts(query);
   }
 }
