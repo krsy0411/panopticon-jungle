@@ -107,7 +107,10 @@ export class HttpLogRepository extends BaseLogRepository<HttpLogDocument> {
       };
     };
 
-    const response = await this.client.search<HttpLogDocument, AggregationsResponse>({
+    const response = await this.client.search<
+      HttpLogDocument,
+      AggregationsResponse
+    >({
       index: this.dataStream,
       size: 0,
       query: {
@@ -139,13 +142,12 @@ export class HttpLogRepository extends BaseLogRepository<HttpLogDocument> {
     const buckets = response.aggregations?.per_interval?.buckets ?? [];
 
     return buckets.map((bucket) => {
-      const counts =
-        Object.fromEntries(
-          bucket.status_codes?.buckets.map((statusBucket) => [
-            String(statusBucket.key),
-            statusBucket.doc_count,
-          ]) ?? [],
-        );
+      const counts = Object.fromEntries(
+        bucket.status_codes?.buckets.map((statusBucket) => [
+          String(statusBucket.key),
+          statusBucket.doc_count,
+        ]) ?? [],
+      );
 
       return {
         timestamp: bucket.key_as_string ?? new Date(bucket.key).toISOString(),

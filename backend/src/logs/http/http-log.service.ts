@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import type { CreateHttpLogDto } from "../dto/create-http-log.dto";
-import type { HttpLogDocument, HttpStatusCodeCountBucket } from "./http-log.repository";
+import type {
+  HttpLogDocument,
+  HttpStatusCodeCountBucket,
+} from "./http-log.repository";
 import { HttpLogRepository } from "./http-log.repository";
 import type { LogSearchResult } from "../base-log.repository";
 import { ListHttpLogsQueryDto } from "../dto/list-http-logs-query.dto";
