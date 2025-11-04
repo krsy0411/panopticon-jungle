@@ -65,7 +65,7 @@ type MetricsSummaryResponse = {
 // 상단 카드용 파생 타입
 type MetricSummary = {
   status_2xx: number;
-  status_4xx: number; 
+  status_4xx: number;
   status_5xx: number;
   request_per_min: number;
   // p95_latency: number | null;
@@ -114,9 +114,9 @@ export default function Dashboard() {
 
     const fetchSummary = async () => {
       try {
-        const res = await fetch(`/api/metrics/summary`, { cache: "no-store" });
+        const res = await fetch(`/api/metrics/summary`, { cache: "no-store" }); // 데이터 가져오기
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json: MetricsSummaryResponse = await res.json();
+        const json: MetricsSummaryResponse = await res.json(); // 데이터 파싱
         const last = json.buckets?.[json.buckets.length - 1];
         if (last && !cancelled) setLiveStats(summarizeFromBucket(last));
       } catch (err) {
@@ -125,7 +125,7 @@ export default function Dashboard() {
     };
 
     fetchSummary(); // 초기 로드
-    const id = setInterval(fetchSummary, 30000); // 30초 폴링(원하면 조정)
+    const id = setInterval(fetchSummary, 30000); // 30초 폴링
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -348,7 +348,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Request/min */}
-          <Card className="p-4 border-l-4 border-l-blue-500">
+          {/* <Card className="p-4 border-l-4 border-l-blue-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">
@@ -360,7 +360,7 @@ export default function Dashboard() {
                 <p className="text-xs text-blue-600 mt-1">req/min</p>
               </div>
             </div>
-          </Card>
+          </Card> */}
 
           {/* P95 Latency
           <Card className="p-4 border-l-4 border-l-purple-500">
