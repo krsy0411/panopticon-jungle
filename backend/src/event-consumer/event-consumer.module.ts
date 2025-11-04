@@ -1,5 +1,4 @@
 import { Module } from "@nestjs/common";
-import { LogModule } from "../logs/logs.module";
 import { MetricsModule } from "../metrics/metrics.module";
 import { EventConsumer } from "./event.consumer";
 
@@ -8,7 +7,7 @@ import { EventConsumer } from "./event.consumer";
  * Kafka의 로그와 메트릭 이벤트를 처리합니다
  */
 @Module({
-  imports: [LogModule, MetricsModule],
+  imports: [MetricsModule],
   controllers: [EventConsumer],
 })
-export class LogConsumerModule {}
+export class EventConsumerModule {}

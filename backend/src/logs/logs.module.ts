@@ -1,12 +1,9 @@
-import { Module } from "@nestjs/common";
-import { LogController } from "./logs.controller";
+import { Global, Module } from "@nestjs/common";
 import { LogStorageService } from "./log-storage.service";
-import { LogRepository } from "./logs.repository";
-import { LogService } from "./logs.service";
 
+@Global()
 @Module({
-  controllers: [LogController],
-  providers: [LogService, LogRepository, LogStorageService],
-  exports: [LogService, LogStorageService],
+  providers: [LogStorageService],
+  exports: [LogStorageService],
 })
-export class LogModule {}
+export class LogInfrastructureModule {}
