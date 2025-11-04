@@ -31,8 +31,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
     const node = process.env.ELASTICSEARCH_NODE ?? "http://localhost:9200";
     this.client = new Client({ node });
 
-    const appStream =
-      process.env.ELASTICSEARCH_APP_DATA_STREAM ?? "logs-app";
+    const appStream = process.env.ELASTICSEARCH_APP_DATA_STREAM ?? "logs-app";
     const httpStream =
       process.env.ELASTICSEARCH_HTTP_DATA_STREAM ?? "logs-http";
 
@@ -41,14 +40,11 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         key: "app",
         dataStream: appStream,
         templateName:
-          process.env.ELASTICSEARCH_APP_TEMPLATE ??
-          `${appStream}-template`,
+          process.env.ELASTICSEARCH_APP_TEMPLATE ?? `${appStream}-template`,
         ilmPolicyName:
-          process.env.ELASTICSEARCH_APP_ILM_POLICY ??
-          `${appStream}-ilm-policy`,
+          process.env.ELASTICSEARCH_APP_ILM_POLICY ?? `${appStream}-ilm-policy`,
         rolloverSize:
-          process.env.ELASTICSEARCH_APP_ROLLOVER_SIZE ??
-          DEFAULT_ROLLOVER_SIZE,
+          process.env.ELASTICSEARCH_APP_ROLLOVER_SIZE ?? DEFAULT_ROLLOVER_SIZE,
         rolloverAge:
           process.env.ELASTICSEARCH_APP_ROLLOVER_AGE ?? DEFAULT_ROLLOVER_AGE,
         mappings: {
@@ -67,17 +63,14 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         key: "http",
         dataStream: httpStream,
         templateName:
-          process.env.ELASTICSEARCH_HTTP_TEMPLATE ??
-          `${httpStream}-template`,
+          process.env.ELASTICSEARCH_HTTP_TEMPLATE ?? `${httpStream}-template`,
         ilmPolicyName:
           process.env.ELASTICSEARCH_HTTP_ILM_POLICY ??
           `${httpStream}-ilm-policy`,
         rolloverSize:
-          process.env.ELASTICSEARCH_HTTP_ROLLOVER_SIZE ??
-          DEFAULT_ROLLOVER_SIZE,
+          process.env.ELASTICSEARCH_HTTP_ROLLOVER_SIZE ?? DEFAULT_ROLLOVER_SIZE,
         rolloverAge:
-          process.env.ELASTICSEARCH_HTTP_ROLLOVER_AGE ??
-          DEFAULT_ROLLOVER_AGE,
+          process.env.ELASTICSEARCH_HTTP_ROLLOVER_AGE ?? DEFAULT_ROLLOVER_AGE,
         mappings: {
           properties: {
             "@timestamp": { type: "date" },

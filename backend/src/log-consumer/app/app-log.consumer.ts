@@ -47,7 +47,9 @@ export class AppLogConsumer {
     }
 
     if (ArrayBuffer.isView(resolved)) {
-      return JSON.parse(Buffer.from(resolved.buffer).toString()) as CreateAppLogDto;
+      return JSON.parse(
+        Buffer.from(resolved.buffer).toString(),
+      ) as CreateAppLogDto;
     }
 
     if (resolved && typeof resolved === "object") {

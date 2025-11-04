@@ -55,9 +55,7 @@ export class AppLogRepository extends BaseLogRepository<AppLogDocument> {
 
     return response.hits.hits
       .filter(
-        (
-          hit,
-        ): hit is typeof hit & { _source: AppLogDocument; _id: string } =>
+        (hit): hit is typeof hit & { _source: AppLogDocument; _id: string } =>
           Boolean(hit._source) && typeof hit._id === "string",
       )
       .map((hit) => ({
