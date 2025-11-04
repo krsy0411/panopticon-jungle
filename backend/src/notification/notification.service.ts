@@ -66,7 +66,7 @@ export class NotificationService {
     try {
       const recipients = this.defaultRecipient;
 
-      if (Array.isArray(recipients) && recipients.length === 0) {
+      if (recipients.length === 0) {
         this.logger.warn("No email recipients specified. Email not sent.");
         return false;
       }
