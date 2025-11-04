@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Shell from "../layout/Shell";
 import { Card } from "../ui/card";
 import { Button } from "../ui/button";
+import { ResponsiveContainer, LineChart as RLineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Legend,} from "recharts";
+
 
 // 더미 데이터
 const DUMMY_STATS = {
@@ -66,22 +68,27 @@ export default function Dashboard() {
             <h3 className="text-sm font-medium text-gray-700 mb-4">
               Request Rate (req/min)
             </h3>
-            <div className="h-64 bg-gray-50 rounded flex items-end gap-1 px-4 py-2">
-              {timeSeriesData.slice(-12).map((point, i) => (
-                <div
-                  key={i}
-                  className="flex-1 bg-blue-500 rounded-t hover:bg-blue-600 transition-colors cursor-pointer"
-                  style={{
-                    height: `${(point.requests / 600) * 100}%`,
-                    minHeight: "4px",
-                  }}
-                  title={`${point.time}: ${point.requests} req/min`}
-                />
-              ))}
-            </div>
-            <div className="flex justify-between text-xs text-gray-500 mt-2 px-2">
-              <span>{timeSeriesData[0]?.time}</span>
-              <span>{timeSeriesData[timeSeriesData.length - 1]?.time}</span>
+            <div className="bg-gray-50 rounded p-2">
+              <ResponsiveContainer width="100%" height={256}>
+                <RLineChart
+                  data={timeSeriesData.slice(-12)}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, "auto"]} />
+                  <Tooltip
+                    formatter={(v) => [`${Math.round(Number(v))} req/min`, "Requests"]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="requests"
+                    stroke="#3B82F6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </RLineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         );
@@ -92,22 +99,27 @@ export default function Dashboard() {
             <h3 className="text-sm font-medium text-gray-700 mb-4">
               Error Rate (%)
             </h3>
-            <div className="h-64 bg-gray-50 rounded flex items-end gap-1 px-4 py-2">
-              {timeSeriesData.slice(-12).map((point, i) => (
-                <div
-                  key={i}
-                  className="flex-1 bg-red-500 rounded-t hover:bg-red-600 transition-colors cursor-pointer"
-                  style={{
-                    height: `${(point.errors / 10) * 100}%`,
-                    minHeight: "4px",
-                  }}
-                  title={`${point.time}: ${point.errors.toFixed(1)}%`}
-                />
-              ))}
-            </div>
-            <div className="flex justify-between text-xs text-gray-500 mt-2 px-2">
-              <span>{timeSeriesData[0]?.time}</span>
-              <span>{timeSeriesData[timeSeriesData.length - 1]?.time}</span>
+            <div className="bg-gray-50 rounded p-2">
+              <ResponsiveContainer width="100%" height={256}>
+                <RLineChart
+                  data={timeSeriesData.slice(-12)}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, "auto"]} />
+                  <Tooltip
+                    formatter={(v) => [`${Number(v).toFixed(1)}%`, "Errors"]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="errors"
+                    stroke="#EF4444"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </RLineChart>
+              </ResponsiveContainer>
             </div>
           </div>
         );
@@ -118,32 +130,40 @@ export default function Dashboard() {
             <h3 className="text-sm font-medium text-gray-700 mb-4">
               System Resources (%)
             </h3>
-            <div className="h-64 bg-gray-50 rounded flex items-end gap-1 px-4 py-2">
-              {timeSeriesData.slice(-12).map((point, i) => (
-                <div key={i} className="flex-1 flex flex-col justify-end gap-1">
-                  <div
-                    className="w-full bg-green-500 rounded-t hover:bg-green-600 transition-colors cursor-pointer"
-                    style={{
-                      height: `${(point.cpu / 100) * 256}px`,
-                      minHeight: "4px",
-                    }}
-                    title={`CPU: ${point.cpu.toFixed(1)}%`}
+            <div className="bg-gray-50 rounded p-2">
+              <ResponsiveContainer width="100%" height={256}>
+                <RLineChart
+                  data={timeSeriesData.slice(-12)}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip
+                    formatter={(v, name) => [
+                      `${Math.round(Number(v))}%`,
+                      name === "cpu" ? "CPU" : "Memory",
+                    ]}
                   />
-                  <div
-                    className="w-full bg-orange-500 rounded-t hover:bg-orange-600 transition-colors cursor-pointer"
-                    style={{
-                      height: `${(point.memory / 100) * 256}px`,
-                      minHeight: "4px",
-                    }}
-                    title={`Memory: ${point.memory.toFixed(1)}%`}
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="cpu"
+                    stroke="#10B981"
+                    strokeWidth={2}
+                    dot={false}
                   />
-                </div>
-              ))}
+                  <Line
+                    type="monotone"
+                    dataKey="memory"
+                    stroke="#F59E0B"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </RLineChart>
+              </ResponsiveContainer>
             </div>
-            <div className="flex justify-between text-xs text-gray-500 mt-2 px-2">
-              <span>{timeSeriesData[0]?.time}</span>
-              <span>{timeSeriesData[timeSeriesData.length - 1]?.time}</span>
-            </div>
+
             <div className="flex gap-6 mt-4 justify-center text-sm">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-green-500 rounded"></div>
@@ -159,6 +179,7 @@ export default function Dashboard() {
     }
   };
 
+  
   return (
     <Shell>
       <div className="space-y-6">
