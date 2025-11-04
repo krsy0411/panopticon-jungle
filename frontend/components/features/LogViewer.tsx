@@ -95,10 +95,10 @@ export default function LogViewer() {
   // Last updated 시간 상태
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
-   useEffect(() => {
+  useEffect(() => {
     const interval = setInterval(() => {
       setLastUpdated(new Date());
-    }, 5000);               // 5초마다 갱신
+    }, 5000); // 5초마다 갱신
     return () => clearInterval(interval);
   }, []);
 
@@ -228,8 +228,10 @@ export default function LogViewer() {
               disabled={isRefreshing}
               className="w-full md:w-auto"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-              {isRefreshing ? 'Refreshing...' : 'Refresh'}
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              {isRefreshing ? "Refreshing..." : "Refresh"}
             </Button>
           </div>
         </Card>
