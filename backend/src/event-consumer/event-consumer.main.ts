@@ -1,9 +1,13 @@
+import { config } from "dotenv";
+config(); // Load .env file before anything else
+
 import { NestFactory } from "@nestjs/core";
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
-import { LogConsumerModule } from "./log-consumer.module";
+import { EventConsumerModule } from "./event-consumer.module";
 
 function parseBrokers(): string[] {
-  const brokersEnv = process.env.KAFKA_BROKERS;
+  const brokersEnv =
+    process.env.KAFKA_EVENT_CONSUMER_BROKERS ?? process.env.KAFKA_BROKERS;
   if (!brokersEnv) {
     return ["localhost:9092"];
   }
@@ -20,11 +24,20 @@ async function bootstrap(): Promise<void> {
     throw new Error("Kafka consumer startup failed: no brokers configured");
   }
 
-  const clientId = process.env.KAFKA_CLIENT_ID ?? "log-consumer";
-  const groupId = process.env.KAFKA_CONSUMER_GROUP ?? "log-consumer-group";
+  const clientId =
+    process.env.KAFKA_EVENT_CONSUMER_CLIENT_ID ??
+    process.env.KAFKA_CLIENT_ID ??
+    "event-consumer";
+  const groupId =
+    process.env.KAFKA_EVENT_CONSUMER_GROUP ??
+    process.env.KAFKA_CONSUMER_GROUP ??
+    "event-consumer-group";
+  const allowAutoTopicCreation =
+    (process.env.KAFKA_EVENT_CONSUMER_ALLOW_AUTO_TOPIC_CREATION ??
+      process.env.KAFKA_ALLOW_AUTO_TOPIC_CREATION) !== "false";
 
   const app = await NestFactory.createMicroservice<MicroserviceOptions>(
-    LogConsumerModule,
+    EventConsumerModule,
     {
       transport: Transport.KAFKA,
       options: {
@@ -34,8 +47,7 @@ async function bootstrap(): Promise<void> {
         },
         consumer: {
           groupId,
-          allowAutoTopicCreation:
-            process.env.KAFKA_ALLOW_AUTO_TOPIC_CREATION !== "false",
+          allowAutoTopicCreation,
         },
       },
     },
