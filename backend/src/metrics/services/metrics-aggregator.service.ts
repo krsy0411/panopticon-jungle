@@ -1,8 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { CreateApiMetricDto } from "./dto/create-api-metric.dto";
-import { CreateSystemMetricDto } from "./dto/create-system-metric.dto";
-import { ApiMetricsRepository } from "./api-metrics.repository";
-import { SystemMetricsRepository } from "./system-metrics.repository";
+import { CreateApiMetricDto } from "../api/dto/create-api-metric.dto";
+import { CreateSystemMetricDto } from "../system/dto/create-system-metric.dto";
+import { ApiMetricsRepository } from "../api/api-metrics.repository";
+import { SystemMetricsRepository } from "../system/system-metrics.repository";
 
 /**
  * 메트릭 집계 서비스

@@ -1,9 +1,9 @@
 import { Module } from "@nestjs/common";
 import { MetricsController } from "./metrics.controller";
-import { MetricsService } from "./metrics.service";
-import { MetricsAggregatorService } from "./metrics-aggregator.service";
-import { ApiMetricsRepository } from "./api-metrics.repository";
-import { SystemMetricsRepository } from "./system-metrics.repository";
+import { MetricsService } from "./services/metrics.service";
+import { MetricsAggregatorService } from "./services/metrics-aggregator.service";
+import { ApiMetricsRepository } from "./api/api-metrics.repository";
+import { SystemMetricsRepository } from "./system/system-metrics.repository";
 
 /**
  * 통합 메트릭 모듈

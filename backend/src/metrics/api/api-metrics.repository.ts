@@ -45,7 +45,10 @@ export class ApiMetricsRepository implements OnModuleInit {
     });
 
     this.pool.on("error", (err) => {
-      this.logger.error("TimescaleDB connection error", err);
+      this.logger.error(
+        "TimescaleDB connection error",
+        err instanceof Error ? err.stack : String(err),
+      );
     });
 
     // 연결 테스트
@@ -53,7 +56,9 @@ export class ApiMetricsRepository implements OnModuleInit {
       const client = await this.pool.connect();
       await client.query("SELECT 1");
       client.release();
-      this.logger.log(`TimescaleDB connection verified: ${process.env.TIMESCALE_HOST}:${process.env.TIMESCALE_PORT}`);
+      this.logger.log(
+        `TimescaleDB connection verified: ${process.env.TIMESCALE_HOST}:${process.env.TIMESCALE_PORT}`,
+      );
     } catch (error) {
       this.logger.error(
         "Failed to connect to TimescaleDB on initialization",
@@ -211,6 +216,152 @@ export class ApiMetricsRepository implements OnModuleInit {
     } catch (error) {
       this.logger.error(
         "Failed to query aggregated metrics",
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 대시보드 메트릭 요약 조회 (최근 5분)
+   * - 성공/에러 요청 수
+   * - 분당 요청 수
+   * - P95 레이턴시
+   */
+  async getMetricsSummary(): Promise<{
+    status_2xx: number;
+    status_4xx: number;
+    status_5xx: number;
+    request_per_min: number;
+    p95_latency: number;
+  }> {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+    const query = `
+      WITH recent_metrics AS (
+        SELECT
+          status_code,
+          latency_ms,
+          request_count
+        FROM api_metrics
+        WHERE time >= $1
+      ),
+      status_counts AS (
+        SELECT
+          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN request_count ELSE 0 END) as status_2xx,
+          SUM(CASE WHEN status_code >= 400 AND status_code < 500 THEN request_count ELSE 0 END) as status_4xx,
+          SUM(CASE WHEN status_code >= 500 THEN request_count ELSE 0 END) as status_5xx,
+          SUM(request_count) as total_requests
+        FROM recent_metrics
+      ),
+      latency_stats AS (
+        SELECT
+          PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY latency_ms) as p95_latency
+        FROM recent_metrics
+        WHERE latency_ms IS NOT NULL
+      )
+      SELECT
+        COALESCE(sc.status_2xx, 0) as status_2xx,
+        COALESCE(sc.status_4xx, 0) as status_4xx,
+        COALESCE(sc.status_5xx, 0) as status_5xx,
+        COALESCE(sc.total_requests / 5.0, 0) as request_per_min,
+        COALESCE(ls.p95_latency, 0) as p95_latency
+      FROM status_counts sc
+      CROSS JOIN latency_stats ls
+    `;
+
+    try {
+      const result = await this.pool.query<{
+        status_2xx: string;
+        status_4xx: string;
+        status_5xx: string;
+        request_per_min: string;
+        p95_latency: string;
+      }>(query, [fiveMinutesAgo]);
+
+      if (result.rows.length === 0) {
+        return {
+          status_2xx: 0,
+          status_4xx: 0,
+          status_5xx: 0,
+          request_per_min: 0,
+          p95_latency: 0,
+        };
+      }
+
+      const row = result.rows[0];
+      const toNumber = (v: unknown) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      return {
+        status_2xx: Math.round(toNumber(row.status_2xx)),
+        status_4xx: Math.round(toNumber(row.status_4xx)),
+        status_5xx: Math.round(toNumber(row.status_5xx)),
+        request_per_min: Math.round(toNumber(row.request_per_min)),
+        p95_latency: Math.round(toNumber(row.p95_latency)),
+      };
+    } catch (error) {
+      this.logger.error(
+        "Failed to query metrics summary",
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 시계열 데이터 조회 (대시보드용)
+   * - 요청 수와 에러율을 시간대별로 집계
+   */
+  async getTimeseriesData(
+    startTime: Date,
+    endTime: Date,
+    intervalMinutes: number,
+  ): Promise<
+    Array<{
+      timestamp: Date;
+      requests: number;
+      errors: number;
+    }>
+  > {
+    const query = `
+      WITH time_buckets AS (
+        SELECT
+          time_bucket($1::interval, time) as bucket,
+          SUM(request_count) as total_requests,
+          SUM(error_count) as total_errors
+        FROM api_metrics
+        WHERE time >= $2 AND time <= $3
+        GROUP BY bucket
+        ORDER BY bucket
+      )
+      SELECT
+        bucket as timestamp,
+        COALESCE(total_requests, 0) as requests,
+        CASE
+          WHEN total_requests > 0 THEN ROUND((total_errors::numeric / total_requests::numeric * 100)::numeric, 2)
+          ELSE 0
+        END as errors
+      FROM time_buckets
+    `;
+
+    try {
+      const result = await this.pool.query<{
+        timestamp: Date;
+        requests: string;
+        errors: string;
+      }>(query, [`${intervalMinutes} minutes`, startTime, endTime]);
+
+      return result.rows.map((row) => ({
+        timestamp: row.timestamp,
+        requests: Number(row.requests) || 0,
+        errors: Number(row.errors) || 0,
+      }));
+    } catch (error) {
+      this.logger.error(
+        "Failed to query timeseries data",
         error instanceof Error ? error.stack : String(error),
       );
       throw error;

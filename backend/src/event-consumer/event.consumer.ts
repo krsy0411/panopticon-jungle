@@ -1,10 +1,10 @@
 import { Controller, Logger } from "@nestjs/common";
 import { Ctx, EventPattern, KafkaContext } from "@nestjs/microservices";
 import { LogService } from "../logs/logs.service";
-import { MetricsAggregatorService } from "../metrics/metrics-aggregator.service";
+import { MetricsAggregatorService } from "../metrics/services/metrics-aggregator.service";
 import type { CreateLogDto } from "../logs/dto/create-logs.dto";
-import type { CreateApiMetricDto } from "../metrics/dto/create-api-metric.dto";
-import type { CreateSystemMetricDto } from "../metrics/dto/create-system-metric.dto";
+import type { CreateApiMetricDto } from "../metrics/api/dto/create-api-metric.dto";
+import type { CreateSystemMetricDto } from "../metrics/system/dto/create-system-metric.dto";
 
 /**
  * 통합 이벤트 컨슈머

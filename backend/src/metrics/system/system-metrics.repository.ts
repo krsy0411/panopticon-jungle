@@ -66,7 +66,10 @@ export class SystemMetricsRepository implements OnModuleInit {
     });
 
     this.pool.on("error", (err) => {
-      this.logger.error("TimescaleDB connection error (SystemMetrics)", err);
+      this.logger.error(
+        "TimescaleDB connection error (SystemMetrics)",
+        err instanceof Error ? err.stack : String(err),
+      );
     });
 
     // 연결 테스트
@@ -74,7 +77,9 @@ export class SystemMetricsRepository implements OnModuleInit {
       const client = await this.pool.connect();
       await client.query("SELECT 1");
       client.release();
-      this.logger.log(`TimescaleDB connection verified (SystemMetrics): ${process.env.TIMESCALE_HOST}:${process.env.TIMESCALE_PORT}`);
+      this.logger.log(
+        `TimescaleDB connection verified (SystemMetrics): ${process.env.TIMESCALE_HOST}:${process.env.TIMESCALE_PORT}`,
+      );
     } catch (error) {
       this.logger.error(
         "Failed to connect to TimescaleDB on initialization (SystemMetrics)",
@@ -339,6 +344,60 @@ export class SystemMetricsRepository implements OnModuleInit {
     } catch (error) {
       this.logger.error(
         "Failed to query active services",
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * 시계열 데이터 조회 (대시보드용)
+   * - CPU와 메모리 사용률을 시간대별로 집계
+   */
+  async getTimeseriesData(
+    startTime: Date,
+    endTime: Date,
+    intervalMinutes: number,
+  ): Promise<
+    Array<{
+      timestamp: Date;
+      cpu: number;
+      memory: number;
+    }>
+  > {
+    const query = `
+      WITH time_buckets AS (
+        SELECT
+          time_bucket($1::interval, time) as bucket,
+          AVG(cpu_usage_percent) as avg_cpu,
+          AVG(memory_usage_bytes) as avg_memory_bytes
+        FROM system_metrics
+        WHERE time >= $2 AND time <= $3
+        GROUP BY bucket
+        ORDER BY bucket
+      )
+      SELECT
+        bucket as timestamp,
+        COALESCE(ROUND(avg_cpu::numeric, 2), 0) as cpu,
+        COALESCE(ROUND((avg_memory_bytes / (1024.0 * 1024.0 * 1024.0))::numeric, 2), 0) as memory
+      FROM time_buckets
+    `;
+
+    try {
+      const result = await this.pool.query<{
+        timestamp: Date;
+        cpu: string;
+        memory: string;
+      }>(query, [`${intervalMinutes} minutes`, startTime, endTime]);
+
+      return result.rows.map((row) => ({
+        timestamp: row.timestamp,
+        cpu: Number(row.cpu) || 0,
+        memory: Number(row.memory) || 0,
+      }));
+    } catch (error) {
+      this.logger.error(
+        "Failed to query system timeseries data",
         error instanceof Error ? error.stack : String(error),
       );
       throw error;
