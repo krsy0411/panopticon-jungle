@@ -13,7 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { Activity, BarChart3, BookOpen } from "lucide-react";
+import { Activity, BarChart3, BookOpen, Bell } from "lucide-react";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -46,6 +46,20 @@ export function AppSidebar() {
                   <Link href="/logs" className="flex items-center gap-2">
                     <BookOpen className="h-4 w-4" />
                     <span>로그 뷰어</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive("/notifications")}
+                >
+                  <Link
+                    href="/notifications"
+                    className="flex items-center gap-2"
+                  >
+                    <Bell className="h-4 w-4" />
+                    <span>알림 설정</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

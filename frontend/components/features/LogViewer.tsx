@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Shell from "../layout/Shell";
 import { Card } from "../ui/card";
 import { Input } from "../ui/input";
@@ -26,64 +26,84 @@ interface Log {
   details: Record<string, unknown>;
 }
 
-// 더미 로그 데이터 생성
-const generateDummyLogs = (): Log[] => {
-  const levels: Log["level"][] = ["INFO", "WARN", "ERROR"];
-  const services = [
-    "payment-api",
-    "user-service",
-    "inventory-api",
-    "log-generator-server",
-  ];
-  const messages = [
-    "user fetch started",
-    "user fetch completed",
-    "DB connection lost",
-    "retry successful",
-    "payment processing started",
-    "payment completed",
-    "slow query detected",
-    "cache miss",
-    "authentication successful",
-    "checkout completed",
-  ];
-
-  const logs: Log[] = [];
-  const now = Date.now();
-
-  for (let i = 0; i < 500; i++) {
-    const timestamp = new Date(now - i * 1000);
-    const level = levels[Math.floor(Math.random() * levels.length)];
-    const service = services[Math.floor(Math.random() * services.length)];
-    const message = messages[Math.floor(Math.random() * messages.length)];
-
-    logs.push({
-      id: `log-${i}`,
-      timestamp: timestamp.toISOString(),
-      level,
-      service,
-      message,
-      details: {
-        "@timestamp": timestamp.toISOString(),
-        service,
-        level,
-        message,
-        module: "UserAPI",
-        action: "getUserById",
-        userId: Math.floor(Math.random() * 1000),
-        latency: Math.floor(Math.random() * 200),
-        trace_id: `trace-${Math.random().toString(36).substring(2, 9)}`,
-        host: `pod-${Math.floor(Math.random() * 5)}`,
-      },
-    });
-  }
-
-  return logs;
+// /api/logs 응답 타입
+type LogsResponse = {
+  total: number;
+  page: number;
+  limit: number;
+  logs: Log[];
 };
 
+// // 더미 로그 데이터 생성
+// const generateDummyLogs = (): Log[] => {
+//   const levels: Log["level"][] = ["INFO", "WARN", "ERROR"];
+//   const services = [
+//     "payment-api",
+//     "user-service",
+//     "inventory-api",
+//     "log-generator-server",
+//   ];
+//   const messages = [
+//     "user fetch started",
+//     "user fetch completed",
+//     "DB connection lost",
+//     "retry successful",
+//     "payment processing started",
+//     "payment completed",
+//     "slow query detected",
+//     "cache miss",
+//     "authentication successful",
+//     "checkout completed",
+//   ];
+
+//   const logs: Log[] = [];
+//   const now = Date.now();
+
+//   for (let i = 0; i < 500; i++) {
+//     const timestamp = new Date(now - i * 1000);
+//     const level = levels[Math.floor(Math.random() * levels.length)];
+//     const service = services[Math.floor(Math.random() * services.length)];
+//     const message = messages[Math.floor(Math.random() * messages.length)];
+
+//     logs.push({
+//       id: `log-${i}`,
+//       timestamp: timestamp.toISOString(),
+//       level,
+//       service,
+//       message,
+//       details: {
+//         "@timestamp": timestamp.toISOString(),
+//         service,
+//         level,
+//         message,
+//         module: "UserAPI",
+//         action: "getUserById",
+//         userId: Math.floor(Math.random() * 1000),
+//         latency: Math.floor(Math.random() * 200),
+//         trace_id: `trace-${Math.random().toString(36).substring(2, 9)}`,
+//         host: `pod-${Math.floor(Math.random() * 5)}`,
+//       },
+//     });
+//   }
+
+//   return logs;
+// };
+
 export default function LogViewer() {
-  const [allLogs, setAllLogs] = useState<Log[]>(generateDummyLogs());
-  const [filteredLogs, setFilteredLogs] = useState<Log[]>(allLogs);
+  // const [allLogs, setAllLogs] = useState<Log[]>(generateDummyLogs());
+  // const [filteredLogs, setFilteredLogs] = useState<Log[]>(allLogs);
+  const LIMIT = 50;
+
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // 무한 스크롤용
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
   const [selectedLog, setSelectedLog] = useState<Log | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filters, setFilters] = useState({
@@ -91,6 +111,13 @@ export default function LogViewer() {
     level: "all",
     service: "all",
   });
+
+  // 검색 디바운스
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(filters.search), 300);
+    return () => clearTimeout(t);
+  }, [filters.search]);
 
   // Last updated 시간 상태
   const [lastUpdated, setLastUpdated] = useState(new Date());
@@ -102,26 +129,91 @@ export default function LogViewer() {
     return () => clearInterval(interval);
   }, []);
 
-  // 필터 적용
-  useEffect(() => {
-    let result = allLogs;
+  // // 필터 적용
+  // useEffect(() => {
+  //   let result = allLogs;
 
-    if (filters.level !== "all") {
-      result = result.filter((log) => log.level === filters.level);
-    }
+  //   if (filters.level !== "all") {
+  //     result = result.filter((log) => log.level === filters.level);
+  //   }
 
-    if (filters.service !== "all") {
-      result = result.filter((log) => log.service === filters.service);
-    }
+  //   if (filters.service !== "all") {
+  //     result = result.filter((log) => log.service === filters.service);
+  //   }
 
-    if (filters.search) {
-      result = result.filter((log) =>
-        log.message.toLowerCase().includes(filters.search.toLowerCase()),
+  //   if (filters.search) {
+  //     result = result.filter((log) =>
+  //       log.message.toLowerCase().includes(filters.search.toLowerCase()),
+  //     );
+  //   }
+
+  //   setFilteredLogs(result);
+  // }, [filters, allLogs]);
+
+  const buildQuery = (p: number) => {
+    const params = new URLSearchParams();
+    params.set("page", String(p));
+    params.set("limit", String(LIMIT));
+    if (filters.service !== "all") params.set("service", filters.service);
+    if (filters.level !== "all") params.set("level", filters.level);
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+    return params.toString();
+  };
+
+  const fetchLogs = async (replace: boolean) => {
+    if (loading) return; // 중복 요청 방지
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/logs?${buildQuery(page)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        setHasMore(false); // 404 등 비정상 응답 시 추가 로딩 중지
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data: LogsResponse = await res.json();
+      setHasMore(
+        data.logs.length === LIMIT && data.page * data.limit < data.total,
       );
+      setLogs((prev) => (replace ? data.logs : [...prev, ...data.logs]));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      setError(e?.message ?? "unknown error");
+    } finally {
+      setLoading(false);
     }
+  };
 
-    setFilteredLogs(result);
-  }, [filters, allLogs]);
+  // 필터(서비스/레벨/검색) 바뀌면 목록 초기화 후 1페이지부터
+  useEffect(() => {
+    setLogs([]);
+    setPage(1);
+    setHasMore(true);
+  }, [filters.service, filters.level, debouncedSearch]);
+
+  // page 또는 필터가 바뀔 때 로드 (page===1이면 교체)
+  useEffect(() => {
+    fetchLogs(page === 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, filters.service, filters.level, debouncedSearch]);
+
+  useEffect(() => {
+    if (!scrollRef.current || !sentinelRef.current) return;
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (first.isIntersecting && hasMore && !loading) {
+          setPage((p) => p + 1);
+        }
+      },
+      { root: scrollRef.current, threshold: 1 },
+    );
+
+    io.observe(sentinelRef.current);
+    return () => io.disconnect();
+  }, [hasMore, loading]);
 
   // 레벨별 색상
   const getLevelColor = (level: Log["level"]) => {
@@ -220,10 +312,20 @@ export default function LogViewer() {
 
             <Button
               variant="outline"
-              onClick={() => {
+              // onClick={() => {
+              //   setIsRefreshing(true);
+              //   setAllLogs(generateDummyLogs());
+              //   setIsRefreshing(false);
+              onClick={async () => {
                 setIsRefreshing(true);
-                setAllLogs(generateDummyLogs());
-                setIsRefreshing(false);
+                try {
+                  setLogs([]);
+                  setPage(1);
+                  setHasMore(true);
+                  await fetchLogs(true); // 첫 페이지 재로딩
+                } finally {
+                  setIsRefreshing(false);
+                }
               }}
               disabled={isRefreshing}
               className="w-full md:w-auto"
@@ -237,9 +339,15 @@ export default function LogViewer() {
         </Card>
 
         {/* 로그 리스트 */}
+        {/* <Card className="p-0 overflow-hidden">
+          <div className="max-h-[calc(100vh-280px)] overflow-y-auto"> */}
         <Card className="p-0 overflow-hidden">
-          <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
-            {filteredLogs.length === 0 ? (
+          <div
+            ref={scrollRef}
+            className="max-h-[calc(100vh-280px)] overflow-y-auto"
+          >
+            {/* {filteredLogs.length === 0 ? ( */}
+            {logs.length === 0 ? (
               <div className="p-12 text-center text-gray-400">
                 <p className="text-sm">No logs found</p>
                 <p className="text-xs mt-1">Try adjusting your filters</p>
@@ -255,8 +363,10 @@ export default function LogViewer() {
                     <th className="py-3 px-4 w-20"></th>
                   </tr>
                 </thead>
+                {/* <tbody className="divide-y divide-gray-100">
+                  {filteredLogs.map((log) => ( */}
                 <tbody className="divide-y divide-gray-100">
-                  {filteredLogs.map((log) => (
+                  {logs.map((log) => (
                     <tr
                       key={log.id}
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
@@ -304,6 +414,17 @@ export default function LogViewer() {
                 </tbody>
               </table>
             )}
+            {error && (
+              <div className="px-4 py-2 text-xs text-red-600">
+                Failed to load logs: {error}
+              </div>
+            )}
+            {loading && (
+              <div className="py-4 text-center text-xs text-gray-400">
+                Loading...
+              </div>
+            )}
+            <div ref={sentinelRef} />
           </div>
         </Card>
 

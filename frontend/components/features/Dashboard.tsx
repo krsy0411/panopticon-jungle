@@ -15,14 +15,14 @@ import {
   Legend,
 } from "recharts";
 
-// 더미 데이터
-const DUMMY_STATS = {
-  status_2xx: 1234,
-  status_4xx: 25,
-  status_5xx: 3,
-  request_per_min: 450,
-  p95_latency: 180,
-};
+// // 더미 데이터
+// const DUMMY_STATS = {
+//   status_2xx: 1234,
+//   status_4xx: 25,
+//   status_5xx: 3,
+//   request_per_min: 450,
+//   p95_latency: 180,
+// };
 
 // 시계열 더미 데이터 (최근 12시간, 1분 간격)
 const generateTimeSeriesData = () => {
@@ -48,25 +48,104 @@ const generateTimeSeriesData = () => {
 
 type MetricType = "requests" | "errors" | "resources";
 
+// API 응답 타입
+type MetricsSummaryBucket = {
+  timestamp: string;
+  total: number;
+  counts: Record<string, number>;
+  // p95_latency?: number;
+};
+
+type MetricsSummaryResponse = {
+  interval: string;
+  timezone: string;
+  buckets: MetricsSummaryBucket[];
+};
+
+// 상단 카드용 파생 타입
+type MetricSummary = {
+  status_2xx: number;
+  status_4xx: number;
+  status_5xx: number;
+  request_per_min: number;
+  // p95_latency: number | null;
+};
+
+const INITIAL_SUMMARY: MetricSummary = {
+  status_2xx: 0,
+  status_4xx: 0,
+  status_5xx: 0,
+  request_per_min: 0,
+  // p95_latency: null,
+};
+
+// 최신 버킷에서 상단 카드 수치로 변환
+function summarizeFromBucket(bucket: MetricsSummaryBucket): MetricSummary {
+  const sumByPrefix = (prefix: string) =>
+    Object.entries(bucket.counts || {}).reduce((acc, [code, cnt]) => {
+      return code.startsWith(prefix) ? acc + (cnt || 0) : acc;
+    }, 0);
+
+  const status_2xx = sumByPrefix("2");
+  const status_4xx = sumByPrefix("4");
+  const status_5xx = sumByPrefix("5");
+
+  const total =
+    typeof bucket.total === "number"
+      ? bucket.total
+      : status_2xx + status_4xx + status_5xx;
+
+  // interval=1h 기준 req/min
+  const request_per_min = Math.round(total / 60);
+
+  // const p95_latency = null;
+
+  return { status_2xx, status_4xx, status_5xx, request_per_min };
+}
+
 export default function Dashboard() {
-  const [stats, setStats] = useState(DUMMY_STATS);
+  const [liveStats, setLiveStats] = useState<MetricSummary>(INITIAL_SUMMARY);
+  // const [stats, setStats] = useState(DUMMY_STATS);
   const [timeSeriesData] = useState(generateTimeSeriesData());
   const [selectedMetric, setSelectedMetric] = useState<MetricType>("requests");
 
-  // 실시간 업데이트 시뮬레이션 (WebSocket 대신)
   useEffect(() => {
-    const interval = setInterval(() => {
-      setStats({
-        status_2xx: stats.status_2xx + Math.floor(Math.random() * 10),
-        status_4xx: stats.status_4xx + Math.floor(Math.random() * 2),
-        status_5xx: stats.status_5xx + Math.floor(Math.random() * 2),
-        request_per_min: Math.floor(Math.random() * 100) + 400,
-        p95_latency: Math.floor(Math.random() * 50) + 150,
-      });
-    }, 5000);
+    let cancelled = false;
 
-    return () => clearInterval(interval);
-  }, [stats]);
+    const fetchSummary = async () => {
+      try {
+        const res = await fetch(`/api/metrics/summary`, { cache: "no-store" }); // 데이터 가져오기
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json: MetricsSummaryResponse = await res.json(); // 데이터 파싱
+        const last = json.buckets?.[json.buckets.length - 1];
+        if (last && !cancelled) setLiveStats(summarizeFromBucket(last));
+      } catch (err) {
+        console.error("Failed to load metrics summary:", err);
+      }
+    };
+
+    fetchSummary(); // 초기 로드
+    const id = setInterval(fetchSummary, 30000); // 30초 폴링
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  // // 실시간 업데이트 시뮬레이션 (WebSocket 대신)
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     setStats({
+  //       status_2xx: stats.status_2xx + Math.floor(Math.random() * 10),
+  //       status_4xx: stats.status_4xx + Math.floor(Math.random() * 2),
+  //       status_5xx: stats.status_5xx + Math.floor(Math.random() * 2),
+  //       request_per_min: Math.floor(Math.random() * 100) + 400,
+  //       p95_latency: Math.floor(Math.random() * 50) + 150,
+  //     });
+  //   }, 5000);
+
+  //   return () => clearInterval(interval);
+  // }, [stats]);
 
   const renderChart = () => {
     switch (selectedMetric) {
@@ -231,7 +310,7 @@ export default function Dashboard() {
                   Success
                 </p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">
-                  {stats.status_2xx.toLocaleString()}
+                  {liveStats.status_2xx.toLocaleString()}
                 </p>
                 <p className="text-xs text-green-600 mt-1">2xx responses</p>
               </div>
@@ -246,7 +325,7 @@ export default function Dashboard() {
                   Client Errors
                 </p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">
-                  {stats.status_4xx}
+                  {liveStats.status_4xx}
                 </p>
                 <p className="text-xs text-yellow-600 mt-1">4xx responses</p>
               </div>
@@ -261,7 +340,7 @@ export default function Dashboard() {
                   Server Errors
                 </p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">
-                  {stats.status_5xx}
+                  {liveStats.status_5xx}
                 </p>
                 <p className="text-xs text-red-600 mt-1">5xx responses</p>
               </div>
@@ -269,21 +348,21 @@ export default function Dashboard() {
           </Card>
 
           {/* Request/min */}
-          <Card className="p-4 border-l-4 border-l-blue-500">
+          {/* <Card className="p-4 border-l-4 border-l-blue-500">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">
                   Throughput
                 </p>
                 <p className="text-2xl font-semibold text-gray-900 mt-1">
-                  {stats.request_per_min}
+                  {liveStats.request_per_min}
                 </p>
                 <p className="text-xs text-blue-600 mt-1">req/min</p>
               </div>
             </div>
-          </Card>
+          </Card> */}
 
-          {/* P95 Latency */}
+          {/* P95 Latency
           <Card className="p-4 border-l-4 border-l-purple-500">
             <div className="flex items-center justify-between">
               <div>
@@ -296,7 +375,7 @@ export default function Dashboard() {
                 <p className="text-xs text-purple-600 mt-1">milliseconds</p>
               </div>
             </div>
-          </Card>
+          </Card> */}
         </div>
 
         {/* 시계열 그래프 */}

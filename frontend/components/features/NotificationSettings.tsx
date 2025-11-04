@@ -15,9 +15,7 @@ export default function NotificationSettings() {
     <div className="p-8 max-w-7xl">
       <div className="mb-6">
         <h1 className="text-gray-900 mb-1 text-2xl font-semibold">알림 설정</h1>
-        <p className="text-gray-500">
-          SLO/에러 이벤트를 받을 채널을 설정합니다.
-        </p>
+        <p className="text-gray-500">에러 이벤트를 받을 채널을 설정합니다.</p>
       </div>
 
       {/* ------------------------------ */}
