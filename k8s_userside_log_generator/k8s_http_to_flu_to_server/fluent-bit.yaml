@@ -97,11 +97,19 @@ data:
         Parser  json_log
         Reserve_Data On
 
-    # 3단계: 필드 추가
+    # 3단계: log_type이 없는 로그에 application 추가 (필드가 없을 때만 추가됨)
     [FILTER]
         Name    modify
         Match   kube.backend.*
         Add     log_type application
+
+    # 4단계: log_type에 따라 태그 분리
+    [FILTER]
+        Name          rewrite_tag
+        Match         kube.backend.*
+        Rule          $log_type ^metrics$ kube.metrics false
+        Rule          $log_type ^application$ kube.app false
+        Emitter_Name  re_emitted
 
     # === 공통 정리 ===
 
@@ -122,14 +130,21 @@ data:
         Name              kafka
         Match             kube.ingress.*
         Brokers           172.21.100.253:9092
-        Topics            http
+        Topics            logs.http
         Format            json
 
     [OUTPUT]
         Name              kafka
-        Match             kube.backend.*
+        Match             kube.app
         Brokers           172.21.100.253:9092
-        Topics            app
+        Topics            logs.app
+        Format            json
+
+    [OUTPUT]
+        Name              kafka
+        Match             kube.metrics
+        Brokers           172.21.100.253:9092
+        Topics            logs.metric
         Format            json
 
   parsers.conf: |

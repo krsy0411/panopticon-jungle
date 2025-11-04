@@ -2,6 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const pino = require("pino");
 const pinoHttp = require("pino-http");
+const os = require("os");
 
 const app = express();
 const PORT = 3000;
@@ -94,8 +95,78 @@ app.get("/api/autolog", async (req, res) => {
   });
 });
 
+// CPU 사용률 추적을 위한 변수
+let lastCPUUsage = process.cpuUsage();
+let lastMeasureTime = Date.now();
+
+// CPU 사용률 계산 함수
+function getCPUUsage() {
+  const currentCPUUsage = process.cpuUsage(lastCPUUsage);
+  const currentTime = Date.now();
+  const timeDiff = currentTime - lastMeasureTime;
+
+  // microseconds를 milliseconds로 변환
+  const userCPU = currentCPUUsage.user / 1000;
+  const systemCPU = currentCPUUsage.system / 1000;
+  const totalCPU = userCPU + systemCPU;
+
+  // CPU 사용률 (%)
+  const cpuPercent = (totalCPU / timeDiff) * 100;
+
+  // 다음 측정을 위해 업데이트
+  lastCPUUsage = process.cpuUsage();
+  lastMeasureTime = currentTime;
+
+  return {
+    cpuPercent: Math.min(cpuPercent, 100).toFixed(2), // 최대 100%
+    userCPU: userCPU.toFixed(2),
+    systemCPU: systemCPU.toFixed(2),
+    totalCPU: totalCPU.toFixed(2),
+  };
+}
+
+// 메모리 사용률 계산 함수
+function getMemoryUsage() {
+  const memUsage = process.memoryUsage();
+  const totalMemory = os.totalmem();
+  const freeMemory = os.freemem();
+  const usedMemory = totalMemory - freeMemory;
+
+  return {
+    processMemoryMB: (memUsage.heapUsed / 1024 / 1024).toFixed(2),
+    processMemoryTotalMB: (memUsage.heapTotal / 1024 / 1024).toFixed(2),
+    systemMemoryUsedGB: (usedMemory / 1024 / 1024 / 1024).toFixed(2),
+    systemMemoryTotalGB: (totalMemory / 1024 / 1024 / 1024).toFixed(2),
+    systemMemoryPercent: ((usedMemory / totalMemory) * 100).toFixed(2),
+  };
+}
+
 app.listen(PORT, () => {
-  logger.info({
-    message: "server started",
-  });
+  const pod_name = `log-generator-${Math.floor(Math.random() * 1000)}`;
+  // 10초마다 CPU 및 메모리 메트릭 로깅
+  setInterval(() => {
+    const cpuMetrics = getCPUUsage();
+    const memoryMetrics = getMemoryUsage();
+
+    logger.info({
+      message: "resource metrics",
+      metric_type: "cpu_memory",
+      log_type: "metrics",
+      cpu: {
+        usage_percent: parseFloat(cpuMetrics.cpuPercent),
+        user_ms: parseFloat(cpuMetrics.userCPU),
+        system_ms: parseFloat(cpuMetrics.systemCPU),
+        total_ms: parseFloat(cpuMetrics.totalCPU),
+      },
+      memory: {
+        process_heap_used_mb: parseFloat(memoryMetrics.processMemoryMB),
+        process_heap_total_mb: parseFloat(memoryMetrics.processMemoryTotalMB),
+        system_used_gb: parseFloat(memoryMetrics.systemMemoryUsedGB),
+        system_total_gb: parseFloat(memoryMetrics.systemMemoryTotalGB),
+        system_percent: parseFloat(memoryMetrics.systemMemoryPercent),
+      },
+      pod_name,
+      node_name: process.env.NODE_NAME || "log-generator",
+    });
+  }, 10000); // 10초마다
 });
