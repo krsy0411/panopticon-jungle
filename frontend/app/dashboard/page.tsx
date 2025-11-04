@@ -1,9 +1,6 @@
-﻿// import Dashboard from "@/components/features/Dashboard";
+import { redirect } from "next/navigation";
 
-// // 대시보드 페이지
-// export default function Page() {
-//   return <Dashboard />;
-// }
+export default function Page() {
+  redirect("/dashboard/list");
+}
 
-import DashboardList from "@/components/features/DashboardList";
-export default function Page() { return <DashboardList /> }
