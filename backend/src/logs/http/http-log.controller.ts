@@ -3,16 +3,17 @@ import { ApiBody, ApiOkResponse, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { CreateHttpLogDto } from "../dto/create-http-log.dto";
 import { HttpLogService } from "./http-log.service";
 import { ListHttpLogsQueryDto } from "../dto/list-http-logs-query.dto";
+import { HttpStatusCodeCountsQueryDto } from "../dto/http-status-code-counts-query.dto";
 
 @ApiTags("HTTP Logs")
 @Controller("logs/http")
 export class HttpLogController {
   constructor(private readonly httpLogService: HttpLogService) {}
 
-  @ApiOperation({ summary: "Ingest a new HTTP access log entry" })
+  @ApiOperation({ summary: "HTTP 접근 로그 수집" })
   @ApiBody({ type: CreateHttpLogDto })
   @ApiOkResponse({
-    description: "Log accepted",
+    description: "로그가 정상적으로 수집됨",
     schema: { example: { status: "accepted" } },
   })
   @Post()
@@ -21,9 +22,9 @@ export class HttpLogController {
     return { status: "accepted" };
   }
 
-  @ApiOperation({ summary: "List HTTP access logs" })
+  @ApiOperation({ summary: "HTTP 접근 로그 조회" })
   @ApiOkResponse({
-    description: "List of HTTP logs",
+    description: "HTTP 접근 로그 목록",
     schema: {
       type: "array",
       items: { type: "object" },
@@ -48,5 +49,38 @@ export class HttpLogController {
   @Get()
   async list(@Query() query: ListHttpLogsQueryDto) {
     return this.httpLogService.listLogs(query);
+  }
+
+  @ApiOperation({ summary: "HTTP 상태 코드 집계 조회" })
+  @ApiOkResponse({
+    description: "시간 구간별 상태 코드 집계 결과",
+    schema: {
+      type: "object",
+      properties: {
+        interval: { type: "string", example: "1h" },
+        buckets: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              timestamp: {
+                type: "string",
+                example: "2024-05-01T10:00:00.000+09:00",
+              },
+              total: { type: "integer", example: 123 },
+              counts: {
+                type: "object",
+                additionalProperties: { type: "integer" },
+                example: { "200": 110, "404": 10, "500": 3 },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @Get("status-code-counts")
+  async getStatusCodeCounts(@Query() query: HttpStatusCodeCountsQueryDto) {
+    return await this.httpLogService.getStatusCodeCounts(query);
   }
 }
