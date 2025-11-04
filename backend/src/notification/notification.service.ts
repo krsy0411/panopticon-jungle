@@ -43,7 +43,15 @@ export class NotificationService {
       },
     });
 
-    this.logger.log("Email provider initialized");
+    this.transporter.verify((error) => {
+      if (error) {
+        this.logger.error("Transporter verification failed:", error);
+      } else {
+        this.logger.log("✅ Transporter is ready to send emails");
+      }
+    });
+
+    this.logger.log("Email provider initialized2");
   }
 
   /**
