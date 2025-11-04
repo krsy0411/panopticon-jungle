@@ -172,7 +172,7 @@ export default function LogViewer() {
     }
     const data: LogsResponse = await res.json();
     setHasMore(data.logs.length === LIMIT && data.page * data.limit < data.total);
-    setLogs(prev => (replace ? data.logs : [...prev, ...data.logs]));
+    setLogs((prev) => (replace ? data.logs : [...prev, ...data.logs]));
   } catch (e: any) {
     setError(e?.message ?? "unknown error");
   } finally {
