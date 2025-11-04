@@ -32,13 +32,15 @@ export default function Landing({ onLoginClick }: LandingProps) {
       <section className="max-w-7xl mx-auto px-6 pt-20 pb-16 text-center">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-full mb-6">
           <Zap className="w-4 h-4" />
-          <span className="text-sm">모니터링부터 복구까지, 운영 자동화를 한 곳에서</span>
+          <span className="text-sm">
+            모니터링부터 복구까지, 운영 자동화를 한 곳에서
+          </span>
         </div>
 
         <h1 className="text-gray-900 mb-6 max-w-4xl mx-auto">
           운영자는 알림만 확인하면 됩니다
           <br />
-         나머지는 Panopticon이 처리합니다
+          나머지는 Panopticon이 처리합니다
         </h1>
 
         <p className="text-gray-600 text-xl mb-8 max-w-2xl mx-auto">
