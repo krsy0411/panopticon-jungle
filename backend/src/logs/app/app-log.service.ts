@@ -1,31 +1,29 @@
 import { Injectable } from "@nestjs/common";
-import type { CreateLogDto } from "./dto/create-logs.dto";
-import type { ListLogsQueryDto } from "./dto/list-logs-query.dto";
-import {
-  type LogDocument,
-  LogRepository,
-  type LogSearchResult,
-} from "./logs.repository";
+import type { CreateAppLogDto } from "../dto/create-app-log.dto";
+import type { ListAppLogsQueryDto } from "../dto/list-app-logs-query.dto";
+import type { AppLogDocument } from "./app-log.repository";
+import { AppLogRepository } from "./app-log.repository";
+import type { LogSearchResult } from "../base-log.repository";
 
-export interface LogIngestContext {
+export interface AppLogIngestContext {
   remoteAddress?: string | null;
   userAgent?: string | null;
 }
 
 @Injectable()
-export class LogService {
-  constructor(private readonly repository: LogRepository) {}
+export class AppLogService {
+  constructor(private readonly repository: AppLogRepository) {}
 
   async ingest(
-    dto: CreateLogDto,
-    context: LogIngestContext = {},
+    dto: CreateAppLogDto,
+    context: AppLogIngestContext = {},
   ): Promise<void> {
     const timestamp =
       dto.timestamp && !Number.isNaN(Date.parse(dto.timestamp))
         ? new Date(dto.timestamp).toISOString()
         : new Date().toISOString();
 
-    const document: LogDocument = {
+    const document: AppLogDocument = {
       "@timestamp": timestamp,
       service: dto.service,
       level: dto.level,
@@ -38,7 +36,9 @@ export class LogService {
     await this.repository.save(document);
   }
 
-  async listLogs(query: ListLogsQueryDto): Promise<LogSearchResult[]> {
+  async listLogs(
+    query: ListAppLogsQueryDto,
+  ): Promise<LogSearchResult<AppLogDocument>[]> {
     return this.repository.search({
       service: query.service,
       level: query.level,

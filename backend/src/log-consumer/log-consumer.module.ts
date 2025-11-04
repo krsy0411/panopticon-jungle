@@ -1,9 +1,8 @@
 import { Module } from "@nestjs/common";
-import { LogModule } from "../logs/logs.module";
-import { LogConsumer } from "./log.consumer";
+import { AppLogConsumerModule } from "./app/app-log-consumer.module";
+import { HttpLogConsumerModule } from "./http/http-log-consumer.module";
 
 @Module({
-  imports: [LogModule],
-  controllers: [LogConsumer],
+  imports: [AppLogConsumerModule, HttpLogConsumerModule],
 })
 export class LogConsumerModule {}

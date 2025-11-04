@@ -1,15 +1,15 @@
 import { Controller, Logger } from "@nestjs/common";
 import { Ctx, EventPattern, KafkaContext } from "@nestjs/microservices";
-import type { CreateLogDto } from "../logs/dto/create-logs.dto";
-import { LogService } from "../logs/logs.service";
+import type { CreateAppLogDto } from "../../logs/dto/create-app-log.dto";
+import { AppLogService } from "../../logs/app/app-log.service";
 
 @Controller()
-export class LogConsumer {
-  private readonly logger = new Logger(LogConsumer.name);
+export class AppLogConsumer {
+  private readonly logger = new Logger(AppLogConsumer.name);
 
-  constructor(private readonly logService: LogService) {}
+  constructor(private readonly logService: AppLogService) {}
 
-  @EventPattern(process.env.KAFKA_LOG_TOPIC ?? "app")
+  @EventPattern(process.env.KAFKA_APP_LOG_TOPIC ?? "logs.app")
   async handleLogEvent(@Ctx() context: KafkaContext): Promise<void> {
     const value = context.getMessage().value;
     if (value == null) {
@@ -18,7 +18,7 @@ export class LogConsumer {
     }
 
     try {
-      const log = this.toLogDto(value);
+      const log = this.parseAppLog(value);
       await this.logService.ingest(log, {
         remoteAddress: null,
         userAgent: null,
@@ -35,25 +35,23 @@ export class LogConsumer {
     }
   }
 
-  private toLogDto(payload: unknown): CreateLogDto {
+  private parseAppLog(payload: unknown): CreateAppLogDto {
     const resolved = this.unwrapValue(payload);
 
     if (typeof resolved === "string") {
-      return JSON.parse(resolved) as CreateLogDto;
+      return JSON.parse(resolved) as CreateAppLogDto;
     }
 
     if (resolved instanceof Buffer) {
-      return JSON.parse(resolved.toString()) as CreateLogDto;
+      return JSON.parse(resolved.toString()) as CreateAppLogDto;
     }
 
     if (ArrayBuffer.isView(resolved)) {
-      return JSON.parse(
-        Buffer.from(resolved.buffer).toString(),
-      ) as CreateLogDto;
+      return JSON.parse(Buffer.from(resolved.buffer).toString()) as CreateAppLogDto;
     }
 
     if (resolved && typeof resolved === "object") {
-      return resolved as CreateLogDto;
+      return resolved as CreateAppLogDto;
     }
 
     throw new Error("Unsupported Kafka payload type");

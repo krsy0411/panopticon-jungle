@@ -9,14 +9,14 @@ const producer = kafka.producer();
 async function main() {
   await producer.connect();
   await producer.send({
-    topic: "app",
+    topic: "logs.app",
     messages: [
       {
         value: JSON.stringify({
           timestamp: "2024-12-26T12:34:56.123Z",
           service: "payment-service",
           level: "info",
-          message: "333334",
+          message: "test111",
         }),
       },
     ],

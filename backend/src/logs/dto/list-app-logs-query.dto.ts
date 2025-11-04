@@ -1,7 +1,7 @@
 import { IsInt, IsOptional, IsString, Max, Min } from "class-validator";
 import { Type } from "class-transformer";
 
-export class ListLogsQueryDto {
+export class ListAppLogsQueryDto {
   @IsOptional()
   @IsString()
   service?: string;
