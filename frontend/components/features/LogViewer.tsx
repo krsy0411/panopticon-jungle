@@ -92,6 +92,16 @@ export default function LogViewer() {
     service: "all",
   });
 
+  // Last updated 시간 상태
+  const [lastUpdated, setLastUpdated] = useState(new Date());
+
+   useEffect(() => {
+    const interval = setInterval(() => {
+      setLastUpdated(new Date());
+    }, 5000);               // 5초마다 갱신
+    return () => clearInterval(interval);
+  }, []);
+
   // 필터 적용
   useEffect(() => {
     let result = allLogs;
@@ -151,8 +161,8 @@ export default function LogViewer() {
               Real-time log streaming and analysis
             </p>
           </div>
-          <div className="text-xs text-gray-500">
-            {filteredLogs.length} logs
+          <div className="text-xs text-gray-500" suppressHydrationWarning>
+            Last updated: {lastUpdated.toLocaleTimeString("ko-KR")}
           </div>
         </div>
 
