@@ -1,10 +1,6 @@
-import Shell from "@/components/layout/Shell";
 import LogViewer from "@/components/features/LogViewer";
 
+// logs 페이지
 export default function Page() {
-  return (
-    <Shell>
-      <LogViewer />
-    </Shell>
-  );
+  return <LogViewer />;
 }

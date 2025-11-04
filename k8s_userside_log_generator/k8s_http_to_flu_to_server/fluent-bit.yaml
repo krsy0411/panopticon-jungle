@@ -37,78 +37,127 @@ data:
         Flush        5
         Daemon       Off
         Log_Level    info
+        Parsers_File parsers.conf
 
     [INPUT]
         Name              tail
         Path              /var/log/containers/*ingress-nginx-controller*.log
-        Parser            docker
         Tag               kube.ingress.* 
         Refresh_Interval  5
         Mem_Buf_Limit     5MB
+        Skip_Long_Lines   Off
 
     [INPUT]
         Name              tail
         Path              /var/log/containers/*log-generator*.log
-        Parser            docker
         Tag               kube.backend.*
         Refresh_Interval  5
         Mem_Buf_Limit     5MB
+        Skip_Long_Lines   Off
 
-    # ingress에 source, type 추가
+    # === Ingress 로그 파싱 ===
+
+    # 1단계: Docker 컨테이너 로그 형식 파싱
+    [FILTER]
+        Name    parser
+        Match   kube.ingress.*
+        Key_Name log
+        Parser  cri_log
+        Reserve_Data On
+
+    # 2단계: Nginx access log 파싱
+    [FILTER]
+        Name    parser
+        Match   kube.ingress.*
+        Key_Name message
+        Parser  nginx_ingress
+        Reserve_Data On
+
+    # 3단계: 필드 추가
     [FILTER]
         Name    modify
         Match   kube.ingress.*
-        Add     source ingress
-        Add     log_type nginx
-    # backend에 source, type 추가
+        Add     log_type http
+
+    # === Backend 로그 파싱 ===
+
+    # 1단계: Docker 컨테이너 로그 형식 파싱
+    [FILTER]
+        Name    parser
+        Match   kube.backend.*
+        Key_Name log
+        Parser  cri_log
+        Reserve_Data On
+
+    # 2단계: JSON 내용 파싱
+    [FILTER]
+        Name    parser
+        Match   kube.backend.*
+        Key_Name message
+        Parser  json_log
+        Reserve_Data On
+
+    # 3단계: 필드 추가
     [FILTER]
         Name    modify
         Match   kube.backend.*
-        Add     source backend
         Add     log_type application
 
-    # 쿠버네티스 메타데이터
-    # [FILTER]
-    #     Name                kubernetes
-    #     Match               kube.*
-    #     Kube_URL            https://kubernetes.default.svc:443
-    #     Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-    #     Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
-    #     Merge_Log           On
-    #     Keep_Log            Off
-    #     K8S-Logging.Parser  On
+    # === 공통 정리 ===
 
-    # 그냥 필드별로 추가하는 데이터.
-    # [FILTER]
-    #     Name    modify
-    #     Match   *
-    #     Add     cluster kind-local
-    #     Add     environment dev
+    # 불필요한 필드 제거
+    [FILTER]
+        Name    record_modifier
+        Match   *
+        # Remove_key log
+        # Remove_key message
+        # Remove_key stream
+        Remove_key logtag
+        # Remove_key time
+        Remove_key _p
 
-    # 같은 쿠버네티스 환경에 띄운 테스트백엔드서버
-    # [OUTPUT]
-    #     Name              http
-    #     Match             *
-    #     Host              log-collector-service
-    #     Port              3001
-    #     URI               /logs
-    #     Format            json
-    #     tls               Off
+    # === Kafka 출력 ===
 
-    # 카프카 서버로 날리는 설정
     [OUTPUT]
         Name              kafka
-        Match             *
+        Match             kube.ingress.*
         Brokers           172.21.100.253:9092
-        Topics            logs
+        Topics            http
         Format            json
 
-  # timestamp 하나 더 추가
+    [OUTPUT]
+        Name              kafka
+        Match             kube.backend.*
+        Brokers           172.21.100.253:9092
+        Topics            app
+        Format            json
+
   parsers.conf: |
+    # CRI/Kubernetes 컨테이너 로그 형식 파서
+    # 형식: <timestamp> <stream> <logtag> <message>
+    # 예: 2025-11-03T17:19:58.353137053Z stdout F actual log content here
     [PARSER]
-        Name   docker
-        Format json
+        Name   cri_log
+        Format regex
+        Regex  ^(?<time>[^ ]+) (?<stream>stdout|stderr) (?<logtag>[^ ]*) (?<message>.*)$
         Time_Key time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L%z
+        Time_Keep On
+
+    # Nginx Ingress Controller Access Log 파서
+    [PARSER]
+        Name   nginx_ingress
+        Format regex
+        Regex  ^(?<client_ip>[^ ]*) - (?<user>[^ ]*) \[(?<req_time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<status_code>[^ ]*) (?<response_size>[^ ]*) "(?<referer>[^\"]*)" "(?<user_agent>[^\"]*)" (?<request_length>[^ ]*) (?<request_time>[^ ]*) \[(?<upstream_service>[^\]]*)\] \[(?<upstream_alt_name>[^\]]*)\] (?<upstream_addr>[^ ]*) (?<upstream_response_length>[^ ]*) (?<upstream_response_time>[^ ]*) (?<upstream_status>[^ ]*) (?<request_id>.*)$
+        Time_Key req_time
+        Time_Format %d/%b/%Y:%H:%M:%S %z
+        Time_Keep On
+
+    # Backend Application JSON 로그 파서
+    [PARSER]
+        Name   json_log
+        Format json
+        Time_Key @timestamp
         Time_Format %Y-%m-%dT%H:%M:%S.%L
         Time_Keep On
 ---
@@ -126,11 +175,11 @@ spec:
         app: fluent-bit
     spec:
       serviceAccountName: fluent-bit
-      tolerations: # ← 추가
+      tolerations:
         - key: node-role.kubernetes.io/control-plane
           operator: Exists
           effect: NoSchedule
-        - key: node-role.kubernetes.io/master # 구버전 호환
+        - key: node-role.kubernetes.io/master
           operator: Exists
           effect: NoSchedule
       containers:

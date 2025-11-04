@@ -1,16 +1,28 @@
 const express = require("express");
 const axios = require("axios");
-const morgan = require("morgan");
+const pino = require("pino");
+const pinoHttp = require("pino-http");
 
 const app = express();
 const PORT = 3000;
 
-// 서버 고유 이름 (난수 생성)
-const SERVER_NAME = `server-${Math.random().toString(36).substring(2, 9)}`;
+// Pino Logger 설정
+const logger = pino({
+  level: "info",
+  formatters: {
+    level: (label) => {
+      return { level: label };
+    },
+  },
+  timestamp: () => `,"@timestamp":"${new Date().toISOString()}"`,
+  base: {
+    service: process.env.SERVICE_NAME || "log-generator-server",
+  },
+});
 
 // Middleware
 app.use(express.json());
-app.use(morgan("dev"));
+// app.use(pinoHttp({ logger }));
 
 // Health check
 app.get("/health", (req, res) => {
@@ -19,25 +31,12 @@ app.get("/health", (req, res) => {
 
 // GET API - 사용자 정보 조회 (예시)
 app.get("/api/users/:id", async (req, res) => {
-  const { id } = req.params;
-  const startTime = Date.now();
-
-  // console.log(`[GET] /api/users/${id} - Request received`);
-  console.log("로그 잘 간다. 이건 단순콘솔이다.");
-  // 간단한 응답 데이터
-  const userData = {
-    id: parseInt(id),
-    name: `User ${id}`,
-    email: `user${id}@example.com`,
-    createdAt: new Date().toISOString(),
-  };
-
-  const latency = Date.now() - startTime;
+  logger.info({
+    message: "user fetch started",
+  });
 
   res.json({
     success: true,
-    data: userData,
-    latency: latency,
   });
 });
 
@@ -46,7 +45,13 @@ app.post("/api/users", async (req, res) => {
   const startTime = Date.now();
   const { name, email } = req.body;
 
-  // console.log("[POST] /api/users - Request received", { name, email });
+  logger.info({
+    message: "user creation started",
+    module: "UserAPI",
+    action: "createUser",
+    name,
+    email,
+  });
 
   // 간단한 응답 데이터
   const newUser = {
@@ -58,6 +63,14 @@ app.post("/api/users", async (req, res) => {
 
   const latency = Date.now() - startTime;
 
+  logger.info({
+    message: "user creation completed",
+    module: "UserAPI",
+    action: "createUser",
+    userId: newUser.id,
+    latency,
+  });
+
   res.status(201).json({
     success: true,
     data: newUser,
@@ -68,7 +81,9 @@ app.post("/api/users", async (req, res) => {
 app.get("/api/autolog", async (req, res) => {
   let count = 0;
   const interval = setInterval(() => {
-    console.log(`[${new Date().toISOString()}] ${SERVER_NAME}`);
+    logger.info({
+      message: "auto log message",
+    });
     count++;
     if (count >= 10) {
       clearInterval(interval);
@@ -80,6 +95,7 @@ app.get("/api/autolog", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`\n🚀 Log Generator Server is running on port ${PORT}`);
-  console.log(`📛 Server Name: ${SERVER_NAME}\n`);
+  logger.info({
+    message: "server started",
+  });
 });
