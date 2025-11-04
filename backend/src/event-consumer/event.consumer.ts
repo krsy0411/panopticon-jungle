@@ -85,8 +85,15 @@ export class EventConsumer {
 
     try {
       const metric = this.toSystemMetricDto(value);
-      await this.metricsAggregator.saveSystemMetric(metric);
+
       this.logger.log(
+        `[METRIC] service=${metric.service} pod=${metric.podName} ` +
+          `CPU=${metric.cpu?.toFixed(2)}% Memory=${metric.memory?.toFixed(2)}Mi ` +
+          `timestamp=${new Date(metric.timestamp || Date.now()).toISOString()}`,
+      );
+
+      await this.metricsAggregator.saveSystemMetric(metric);
+      this.logger.debug(
         `System metric saved (topic=${context.getTopic()}, partition=${context.getPartition()})`,
       );
     } catch (error) {
