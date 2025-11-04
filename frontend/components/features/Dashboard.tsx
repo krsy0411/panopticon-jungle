@@ -72,10 +72,13 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={256}>
                 <RLineChart
                   data={timeSeriesData.slice(-12)}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+                  margin={{ top: 8, right: 30, left: 16, bottom: 24 }}  // bottom 늘림
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="time" tick={{ fontSize: 12, dy: 8  }}
+                         interval={0}                   // 라벨 간격 균등 표시
+                         minTickGap={20}                // 라벨 겹침 방지
+                  />
                   <YAxis domain={[0, "auto"]} />
                   <Tooltip
                     formatter={(v) => [`${Math.round(Number(v))} req/min`, "Requests"]}
@@ -103,10 +106,13 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={256}>
                 <RLineChart
                   data={timeSeriesData.slice(-12)}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+                  margin={{ top: 8, right: 30, left: 16, bottom: 24 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="time" tick={{ fontSize: 12, dy: 8  }}
+                         interval={0}                   
+                         minTickGap={20}               
+                  />
                   <YAxis domain={[0, "auto"]} />
                   <Tooltip
                     formatter={(v) => [`${Number(v).toFixed(1)}%`, "Errors"]}
@@ -134,10 +140,13 @@ export default function Dashboard() {
               <ResponsiveContainer width="100%" height={256}>
                 <RLineChart
                   data={timeSeriesData.slice(-12)}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+                  margin={{ top: 8, right: 30, left: 16, bottom: 24 }} 
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="time" tick={{ fontSize: 12, dy: 8  }}
+                         interval={0}                   
+                         minTickGap={20}               
+                  />
                   <YAxis domain={[0, 100]} />
                   <Tooltip
                     formatter={(v, name) => [
@@ -179,7 +188,7 @@ export default function Dashboard() {
     }
   };
 
-  
+
   return (
     <Shell>
       <div className="space-y-6">
