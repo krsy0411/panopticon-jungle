@@ -82,9 +82,10 @@ const generateDummyLogs = (): Log[] => {
 };
 
 export default function LogViewer() {
-  const [allLogs] = useState<Log[]>(generateDummyLogs());
+  const [allLogs, setAllLogs] = useState<Log[]>(generateDummyLogs());
   const [filteredLogs, setFilteredLogs] = useState<Log[]>(allLogs);
   const [selectedLog, setSelectedLog] = useState<Log | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
     level: "all",
@@ -209,11 +210,16 @@ export default function LogViewer() {
 
             <Button
               variant="outline"
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                setIsRefreshing(true);
+                setAllLogs(generateDummyLogs());
+                setIsRefreshing(false);
+              }}
+              disabled={isRefreshing}
               className="w-full md:w-auto"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              {isRefreshing ? 'Refreshing...' : 'Refresh'}
             </Button>
           </div>
         </Card>

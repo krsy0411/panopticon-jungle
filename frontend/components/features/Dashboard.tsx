@@ -170,7 +170,7 @@ export default function Dashboard() {
               Real-time monitoring and SRE metrics
             </p>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500" suppressHydrationWarning>
             Last updated: {new Date().toLocaleTimeString("ko-KR")}
           </div>
         </div>
