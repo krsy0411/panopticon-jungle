@@ -1,6 +1,9 @@
+import { config } from "dotenv";
+config(); // Load .env file before anything else
+
 import { NestFactory } from "@nestjs/core";
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
-import { LogConsumerModule } from "./log-consumer.module";
+import { LogConsumerModule } from "./event-consumer.module";
 
 function parseBrokers(): string[] {
   const brokersEnv = process.env.KAFKA_BROKERS;
