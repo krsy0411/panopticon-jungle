@@ -10,10 +10,10 @@ import { AppLogService } from "./app-log.service";
 export class AppLogController {
   constructor(private readonly appLogService: AppLogService) {}
 
-  @ApiOperation({ summary: "Ingest a new application log entry" })
+  @ApiOperation({ summary: "애플리케이션 로그 수집" })
   @ApiBody({ type: CreateAppLogDto })
   @ApiOkResponse({
-    description: "Log accepted",
+    description: "로그가 정상적으로 수집됨",
     schema: { example: { status: "accepted" } },
   })
   @Post()
@@ -25,9 +25,9 @@ export class AppLogController {
     return { status: "accepted" };
   }
 
-  @ApiOperation({ summary: "List application logs" })
+  @ApiOperation({ summary: "애플리케이션 로그 조회" })
   @ApiOkResponse({
-    description: "List of application logs",
+    description: "애플리케이션 로그 목록",
     schema: {
       type: "array",
       items: { type: "object" },
