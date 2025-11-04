@@ -50,17 +50,33 @@ export class HttpLogService {
     if (value == null) {
       return null;
     }
-    const parsed =
-      typeof value === "number" ? value : Number.parseInt(String(value), 10);
-    return Number.isNaN(parsed) ? null : parsed;
+
+    if (typeof value === "number") {
+      return Number.isNaN(value) ? null : value;
+    }
+
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number.parseInt(value, 10);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    return null;
   }
 
   private static toFloat(value: unknown): number | null {
     if (value == null) {
       return null;
     }
-    const parsed =
-      typeof value === "number" ? value : Number.parseFloat(String(value));
-    return Number.isNaN(parsed) ? null : parsed;
+
+    if (typeof value === "number") {
+      return Number.isNaN(value) ? null : value;
+    }
+
+    if (typeof value === "string" && value.trim().length > 0) {
+      const parsed = Number.parseFloat(value);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    return null;
   }
 }
