@@ -161,25 +161,28 @@ export default function LogViewer() {
   };
 
   const fetchLogs = async (replace: boolean) => {
-  if (loading) return;           // 중복 요청 방지
-  setLoading(true);
-  setError(null);
-  try {
-    const res = await fetch(`/api/logs?${buildQuery(page)}`, { cache: "no-store" });
-    if (!res.ok) {
-      setHasMore(false);         // 404 등 비정상 응답 시 추가 로딩 중지
-      throw new Error(`HTTP ${res.status}`);
+    if (loading) return; // 중복 요청 방지
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/logs?${buildQuery(page)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        setHasMore(false); // 404 등 비정상 응답 시 추가 로딩 중지
+        throw new Error(`HTTP ${res.status}`);
+      }
+      const data: LogsResponse = await res.json();
+      setHasMore(
+        data.logs.length === LIMIT && data.page * data.limit < data.total,
+      );
+      setLogs((prev) => (replace ? data.logs : [...prev, ...data.logs]));
+    } catch (e: any) {
+      setError(e?.message ?? "unknown error");
+    } finally {
+      setLoading(false);
     }
-    const data: LogsResponse = await res.json();
-    setHasMore(data.logs.length === LIMIT && data.page * data.limit < data.total);
-    setLogs((prev) => (replace ? data.logs : [...prev, ...data.logs]));
-  } catch (e: any) {
-    setError(e?.message ?? "unknown error");
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   // 필터(서비스/레벨/검색) 바뀌면 목록 초기화 후 1페이지부터
   useEffect(() => {
