@@ -29,16 +29,18 @@ export class MetricsController {
 
   /**
    * 집계된 API 메트릭 조회
-   * GET /metrics/api/aggregated?service=user-api&window=5
+   * GET /metrics/api/aggregated?service=user-api&window=5&limit=100
    */
   @Get("api/aggregated")
   async getAggregatedApiMetrics(
     @Query("service") service: string,
     @Query("window") window?: number,
+    @Query("limit") limit?: number,
   ) {
     return this.metricsService.getAggregatedApiMetrics(
       service,
       window ? parseInt(String(window)) : 5,
+      limit ? parseInt(String(limit)) : 100,
     );
   }
 
@@ -76,19 +78,21 @@ export class MetricsController {
 
   /**
    * 집계된 시스템 메트릭 조회
-   * GET /metrics/system/aggregated?service=user-api&window=5&bucket=1min
+   * GET /metrics/system/aggregated?service=user-api&window=5&bucket=1min&limit=100
    */
   @Get("system/aggregated")
   async getAggregatedSystemMetrics(
     @Query("service") service: string,
     @Query("window") window?: number,
     @Query("bucket") bucket?: string,
+    @Query("limit") limit?: number,
   ) {
     const bucketSize = bucket === "5min" ? "5min" : "1min";
     return this.metricsService.getAggregatedSystemMetrics(
       service,
       window ? parseInt(String(window)) : 5,
       bucketSize,
+      limit ? parseInt(String(limit)) : 100,
     );
   }
 

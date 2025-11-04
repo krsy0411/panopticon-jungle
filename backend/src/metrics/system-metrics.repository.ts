@@ -4,11 +4,40 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Pool, PoolClient } from "pg";
-import {
-  SystemMetricData,
-  SystemMetricRecord,
-  AggregatedSystemMetric,
-} from "./interfaces/system-metric.interface";
+import { CreateSystemMetricDto } from "./dto/create-system-metric.dto";
+
+export interface SystemMetricRecord {
+  time: Date;
+  service: string;
+  pod_name: string;
+  node_name?: string;
+  namespace?: string;
+  cpu_usage_percent?: number;
+  memory_usage_bytes?: number;
+  disk_usage_percent?: number;
+  network_rx_bytes?: number;
+  network_tx_bytes?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AggregatedSystemMetric {
+  bucket: Date;
+  service: string;
+  pod_name: string;
+  node_name?: string;
+  avg_cpu_percent?: number;
+  max_cpu_percent?: number;
+  min_cpu_percent?: number;
+  avg_cpu_cores?: number;
+  avg_memory_percent?: number;
+  max_memory_percent?: number;
+  avg_memory_bytes?: number;
+  avg_disk_percent?: number;
+  max_disk_percent?: number;
+  total_network_rx_bytes?: number;
+  total_network_tx_bytes?: number;
+  sample_count: number;
+}
 
 /**
  * 시스템 메트릭 저장소
@@ -19,7 +48,7 @@ export class SystemMetricsRepository implements OnModuleInit {
   private readonly logger = new Logger(SystemMetricsRepository.name);
   private pool: Pool;
 
-  onModuleInit() {
+  async onModuleInit() {
     // PostgreSQL/TimescaleDB 연결 설정
     this.pool = new Pool({
       host: process.env.TIMESCALE_HOST || "localhost",
@@ -39,70 +68,61 @@ export class SystemMetricsRepository implements OnModuleInit {
     this.pool.on("error", (err) => {
       this.logger.error("TimescaleDB connection error (SystemMetrics)", err);
     });
+
+    // 연결 테스트
+    try {
+      const client = await this.pool.connect();
+      await client.query("SELECT 1");
+      client.release();
+      this.logger.log(`TimescaleDB connection verified (SystemMetrics): ${process.env.TIMESCALE_HOST}:${process.env.TIMESCALE_PORT}`);
+    } catch (error) {
+      this.logger.error(
+        "Failed to connect to TimescaleDB on initialization (SystemMetrics)",
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
   }
 
   /**
    * 단일 시스템 메트릭 저장
    */
-  async save(metric: SystemMetricData): Promise<void> {
+  async save(createMetricDto: CreateSystemMetricDto): Promise<void> {
     const query = `
       INSERT INTO system_metrics (
         time, service, pod_name, node_name, namespace,
-        cpu_usage_percent, cpu_cores_used,
-        memory_usage_bytes, memory_usage_percent, memory_limit_bytes,
-        disk_usage_percent, disk_usage_bytes, disk_io_read_bytes, disk_io_write_bytes,
-        network_rx_bytes, network_tx_bytes, network_rx_packets, network_tx_packets,
+        cpu_usage_percent, memory_usage_bytes, disk_usage_percent,
+        network_rx_bytes, network_tx_bytes,
         metadata
       ) VALUES (
         $1, $2, $3, $4, $5,
-        $6, $7,
-        $8, $9, $10,
-        $11, $12, $13, $14,
-        $15, $16, $17, $18,
-        $19
+        $6, $7, $8,
+        $9, $10,
+        $11
       )
       ON CONFLICT (time, service, pod_name) DO UPDATE SET
         cpu_usage_percent = EXCLUDED.cpu_usage_percent,
-        cpu_cores_used = EXCLUDED.cpu_cores_used,
         memory_usage_bytes = EXCLUDED.memory_usage_bytes,
-        memory_usage_percent = EXCLUDED.memory_usage_percent,
-        memory_limit_bytes = EXCLUDED.memory_limit_bytes,
         disk_usage_percent = EXCLUDED.disk_usage_percent,
-        disk_usage_bytes = EXCLUDED.disk_usage_bytes,
-        disk_io_read_bytes = EXCLUDED.disk_io_read_bytes,
-        disk_io_write_bytes = EXCLUDED.disk_io_write_bytes,
         network_rx_bytes = EXCLUDED.network_rx_bytes,
         network_tx_bytes = EXCLUDED.network_tx_bytes,
-        network_rx_packets = EXCLUDED.network_rx_packets,
-        network_tx_packets = EXCLUDED.network_tx_packets,
         metadata = EXCLUDED.metadata
     `;
 
     const values = [
-      new Date(metric.timestamp),
-      metric.service,
-      metric.podName || null,
-      metric.nodeName || null,
-      metric.namespace || null,
-      // CPU
-      metric.cpuUsagePercent ?? null,
-      metric.cpuCoresUsed ?? null,
-      // 메모리
-      metric.memoryUsageBytes ?? null,
-      metric.memoryUsagePercent ?? null,
-      metric.memoryLimitBytes ?? null,
-      // 디스크
-      metric.diskUsagePercent ?? null,
-      metric.diskUsageBytes ?? null,
-      metric.diskIoReadBytes ?? null,
-      metric.diskIoWriteBytes ?? null,
-      // 네트워크
-      metric.networkRxBytes ?? null,
-      metric.networkTxBytes ?? null,
-      metric.networkRxPackets ?? null,
-      metric.networkTxPackets ?? null,
-      // 메타데이터
-      metric.metadata ? JSON.stringify(metric.metadata) : null,
+      new Date(createMetricDto.timestamp || Date.now()),
+      createMetricDto.service,
+      createMetricDto.podName,
+      createMetricDto.nodeName || null,
+      createMetricDto.namespace || null,
+      createMetricDto.cpu ?? null,
+      createMetricDto.memory ?? null,
+      createMetricDto.disk ?? null,
+      createMetricDto.networkIn ?? null,
+      createMetricDto.networkOut ?? null,
+      createMetricDto.metadata
+        ? JSON.stringify(createMetricDto.metadata)
+        : null,
     ];
 
     try {
@@ -119,7 +139,7 @@ export class SystemMetricsRepository implements OnModuleInit {
   /**
    * 배치 저장 (여러 시스템 메트릭 한 번에 저장)
    */
-  async saveBatch(metrics: SystemMetricData[]): Promise<void> {
+  async saveBatch(metrics: CreateSystemMetricDto[]): Promise<void> {
     if (metrics.length === 0) return;
 
     const client: PoolClient = await this.pool.connect();
@@ -130,56 +150,36 @@ export class SystemMetricsRepository implements OnModuleInit {
       const query = `
         INSERT INTO system_metrics (
           time, service, pod_name, node_name, namespace,
-          cpu_usage_percent, cpu_cores_used,
-          memory_usage_bytes, memory_usage_percent, memory_limit_bytes,
-          disk_usage_percent, disk_usage_bytes, disk_io_read_bytes, disk_io_write_bytes,
-          network_rx_bytes, network_tx_bytes, network_rx_packets, network_tx_packets,
+          cpu_usage_percent, memory_usage_bytes, disk_usage_percent,
+          network_rx_bytes, network_tx_bytes,
           metadata
         ) VALUES (
           $1, $2, $3, $4, $5,
-          $6, $7,
-          $8, $9, $10,
-          $11, $12, $13, $14,
-          $15, $16, $17, $18,
-          $19
+          $6, $7, $8,
+          $9, $10,
+          $11
         )
         ON CONFLICT (time, service, pod_name) DO UPDATE SET
           cpu_usage_percent = EXCLUDED.cpu_usage_percent,
-          cpu_cores_used = EXCLUDED.cpu_cores_used,
           memory_usage_bytes = EXCLUDED.memory_usage_bytes,
-          memory_usage_percent = EXCLUDED.memory_usage_percent,
-          memory_limit_bytes = EXCLUDED.memory_limit_bytes,
           disk_usage_percent = EXCLUDED.disk_usage_percent,
-          disk_usage_bytes = EXCLUDED.disk_usage_bytes,
-          disk_io_read_bytes = EXCLUDED.disk_io_read_bytes,
-          disk_io_write_bytes = EXCLUDED.disk_io_write_bytes,
           network_rx_bytes = EXCLUDED.network_rx_bytes,
           network_tx_bytes = EXCLUDED.network_tx_bytes,
-          network_rx_packets = EXCLUDED.network_rx_packets,
-          network_tx_packets = EXCLUDED.network_tx_packets,
           metadata = EXCLUDED.metadata
       `;
 
       for (const metric of metrics) {
         const values = [
-          new Date(metric.timestamp),
+          new Date(metric.timestamp || Date.now()),
           metric.service,
-          metric.podName || null,
+          metric.podName,
           metric.nodeName || null,
           metric.namespace || null,
-          metric.cpuUsagePercent ?? null,
-          metric.cpuCoresUsed ?? null,
-          metric.memoryUsageBytes ?? null,
-          metric.memoryUsagePercent ?? null,
-          metric.memoryLimitBytes ?? null,
-          metric.diskUsagePercent ?? null,
-          metric.diskUsageBytes ?? null,
-          metric.diskIoReadBytes ?? null,
-          metric.diskIoWriteBytes ?? null,
-          metric.networkRxBytes ?? null,
-          metric.networkTxBytes ?? null,
-          metric.networkRxPackets ?? null,
-          metric.networkTxPackets ?? null,
+          metric.cpu ?? null,
+          metric.memory ?? null,
+          metric.disk ?? null,
+          metric.networkIn ?? null,
+          metric.networkOut ?? null,
           metric.metadata ? JSON.stringify(metric.metadata) : null,
         ];
 
@@ -212,10 +212,8 @@ export class SystemMetricsRepository implements OnModuleInit {
     const query = `
       SELECT
         time, service, pod_name, node_name, namespace,
-        cpu_usage_percent, cpu_cores_used,
-        memory_usage_bytes, memory_usage_percent, memory_limit_bytes,
-        disk_usage_percent, disk_usage_bytes, disk_io_read_bytes, disk_io_write_bytes,
-        network_rx_bytes, network_tx_bytes, network_rx_packets, network_tx_packets,
+        cpu_usage_percent, memory_usage_bytes, disk_usage_percent,
+        network_rx_bytes, network_tx_bytes,
         metadata
       FROM system_metrics
       WHERE service = $1
@@ -248,10 +246,8 @@ export class SystemMetricsRepository implements OnModuleInit {
     const query = `
       SELECT
         time, service, pod_name, node_name, namespace,
-        cpu_usage_percent, cpu_cores_used,
-        memory_usage_bytes, memory_usage_percent, memory_limit_bytes,
-        disk_usage_percent, disk_usage_bytes, disk_io_read_bytes, disk_io_write_bytes,
-        network_rx_bytes, network_tx_bytes, network_rx_packets, network_tx_packets,
+        cpu_usage_percent, memory_usage_bytes, disk_usage_percent,
+        network_rx_bytes, network_tx_bytes,
         metadata
       FROM system_metrics
       WHERE pod_name = $1
@@ -292,15 +288,14 @@ export class SystemMetricsRepository implements OnModuleInit {
         service,
         pod_name,
         node_name,
-        avg_cpu_percent,
-        max_cpu_percent,
-        min_cpu_percent,
-        avg_cpu_cores,
-        avg_memory_percent,
-        max_memory_percent,
-        avg_memory_bytes,
-        avg_disk_percent,
-        max_disk_percent,
+        namespace,
+        avg_cpu_usage_percent,
+        max_cpu_usage_percent,
+        avg_cpu_cores_used,
+        avg_memory_usage_bytes,
+        max_memory_usage_bytes,
+        avg_memory_usage_percent,
+        avg_disk_usage_percent,
         total_network_rx_bytes,
         total_network_tx_bytes,
         sample_count

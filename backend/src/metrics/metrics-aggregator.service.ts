@@ -1,12 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { HttpMetricData } from "./interfaces/http-metric.interface";
-import { SystemMetricData } from "./interfaces/system-metric.interface";
+import { CreateApiMetricDto } from "./dto/create-api-metric.dto";
+import { CreateSystemMetricDto } from "./dto/create-system-metric.dto";
 import { ApiMetricsRepository } from "./api-metrics.repository";
 import { SystemMetricsRepository } from "./system-metrics.repository";
 
 /**
- * 통합 메트릭 집계 서비스
- * Kafka에서 수신한 API 메트릭과 시스템 메트릭을 TimescaleDB에 저장
+ * 메트릭 집계 서비스
+ * Kafka Consumer에서 메트릭 데이터를 수신하여 저장 처리
  */
 @Injectable()
 export class MetricsAggregatorService {
@@ -18,66 +18,36 @@ export class MetricsAggregatorService {
   ) {}
 
   /**
-   * API 메트릭 저장 - Kafka Consumer에서 호출
+   * API 메트릭 저장
    */
-  async addApiMetric(metric: HttpMetricData): Promise<void> {
+  async saveApiMetric(createMetricDto: CreateApiMetricDto): Promise<void> {
     try {
-      await this.apiMetricsRepo.save(metric);
+      await this.apiMetricsRepo.save(createMetricDto);
       this.logger.debug(
-        `API metric saved: ${metric.service} - ${metric.endpoint || "N/A"}`,
+        `API metric saved: ${createMetricDto.service} - ${createMetricDto.endpoint}`,
       );
     } catch (error) {
       this.logger.error(
-        `Failed to save API metric: ${metric.service}`,
+        `Failed to save API metric: ${createMetricDto.service}`,
         error instanceof Error ? error.stack : String(error),
       );
-      // 에러를 throw하지 않음 - Kafka Consumer가 멈추지 않도록
     }
   }
 
   /**
-   * 시스템 메트릭 저장 - Kafka Consumer에서 호출
+   * 시스템 메트릭 저장
    */
-  async addSystemMetric(metric: SystemMetricData): Promise<void> {
+  async saveSystemMetric(
+    createMetricDto: CreateSystemMetricDto,
+  ): Promise<void> {
     try {
-      await this.systemMetricsRepo.save(metric);
+      await this.systemMetricsRepo.save(createMetricDto);
       this.logger.debug(
-        `System metric saved: ${metric.service} (pod: ${metric.podName || "N/A"})`,
+        `System metric saved: ${createMetricDto.service} (pod: ${createMetricDto.podName})`,
       );
     } catch (error) {
       this.logger.error(
-        `Failed to save system metric: ${metric.service}`,
-        error instanceof Error ? error.stack : String(error),
-      );
-      // 에러를 throw하지 않음
-    }
-  }
-
-  /**
-   * API 메트릭 배치 저장
-   */
-  async addApiMetricsBatch(metrics: HttpMetricData[]): Promise<void> {
-    try {
-      await this.apiMetricsRepo.saveBatch(metrics);
-      this.logger.debug(`API metrics batch saved: ${metrics.length} items`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to save API metrics batch`,
-        error instanceof Error ? error.stack : String(error),
-      );
-    }
-  }
-
-  /**
-   * 시스템 메트릭 배치 저장
-   */
-  async addSystemMetricsBatch(metrics: SystemMetricData[]): Promise<void> {
-    try {
-      await this.systemMetricsRepo.saveBatch(metrics);
-      this.logger.debug(`System metrics batch saved: ${metrics.length} items`);
-    } catch (error) {
-      this.logger.error(
-        `Failed to save system metrics batch`,
+        `Failed to save system metric: ${createMetricDto.service}`,
         error instanceof Error ? error.stack : String(error),
       );
     }

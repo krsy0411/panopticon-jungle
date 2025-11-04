@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { Injectable } from "@nestjs/common";
 import { ApiMetricsRepository } from "./api-metrics.repository";
 import { SystemMetricsRepository } from "./system-metrics.repository";
@@ -26,14 +26,19 @@ export class MetricsService {
   /**
    * 시간 범위별 집계 API 메트릭 조회
    */
-  async getAggregatedApiMetrics(service: string, windowMinutes: number = 5) {
+  async getAggregatedApiMetrics(
+    service: string,
+    windowMinutes: number = 5,
+    limit: number = 100,
+  ) {
     const endTime = new Date();
     const startTime = new Date(endTime.getTime() - windowMinutes * 60 * 1000);
-    return this.apiMetricsRepo.getAggregatedMetrics(
+    const results = await this.apiMetricsRepo.getAggregatedMetrics(
       service,
       startTime,
       endTime,
     );
+    return results.slice(0, limit);
   }
 
   // ========== 시스템 메트릭 조회 ==========
@@ -59,15 +64,17 @@ export class MetricsService {
     service: string,
     windowMinutes: number = 5,
     bucketSize: "1min" | "5min" = "1min",
+    limit: number = 100,
   ) {
     const endTime = new Date();
     const startTime = new Date(endTime.getTime() - windowMinutes * 60 * 1000);
-    return this.systemMetricsRepo.getAggregatedMetrics(
+    const results = await this.systemMetricsRepo.getAggregatedMetrics(
       service,
       startTime,
       endTime,
       bucketSize,
     );
+    return results.slice(0, limit);
   }
 
   // ========== 공통 조회 ==========

@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { Pool, PoolClient } from "pg";
-import { HttpMetricData } from "./interfaces/http-metric.interface";
+import { CreateApiMetricDto } from "./dto/create-api-metric.dto";
 
 export interface ApiMetricRecord {
   time: Date;
@@ -27,7 +27,7 @@ export class ApiMetricsRepository implements OnModuleInit {
   private readonly logger = new Logger(ApiMetricsRepository.name);
   private pool: Pool;
 
-  onModuleInit() {
+  async onModuleInit() {
     // PostgreSQL/TimescaleDB 연결 설정
     this.pool = new Pool({
       host: process.env.TIMESCALE_HOST || "localhost",
@@ -47,12 +47,26 @@ export class ApiMetricsRepository implements OnModuleInit {
     this.pool.on("error", (err) => {
       this.logger.error("TimescaleDB connection error", err);
     });
+
+    // 연결 테스트
+    try {
+      const client = await this.pool.connect();
+      await client.query("SELECT 1");
+      client.release();
+      this.logger.log(`TimescaleDB connection verified: ${process.env.TIMESCALE_HOST}:${process.env.TIMESCALE_PORT}`);
+    } catch (error) {
+      this.logger.error(
+        "Failed to connect to TimescaleDB on initialization",
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
   }
 
   /**
    * 단일 메트릭 저장
    */
-  async save(metric: HttpMetricData): Promise<void> {
+  async save(createMetricDto: CreateApiMetricDto): Promise<void> {
     const query = `
       INSERT INTO api_metrics (
         time, service, endpoint, method, latency_ms, status_code,
@@ -63,14 +77,14 @@ export class ApiMetricsRepository implements OnModuleInit {
     `;
 
     const values = [
-      new Date(metric.timestamp),
-      metric.service,
-      metric.endpoint || null,
-      metric.method || null,
-      metric.latency || null,
-      metric.status || null,
-      metric.status && metric.status >= 400 ? 1 : 0, // error_count
-      1, // request_count
+      new Date(createMetricDto.timestamp || new Date()),
+      createMetricDto.service,
+      createMetricDto.endpoint || null,
+      createMetricDto.method || null,
+      createMetricDto.latency || null,
+      createMetricDto.status || null,
+      createMetricDto.status && createMetricDto.status >= 400 ? 1 : 0,
+      1,
     ];
 
     try {
@@ -87,7 +101,7 @@ export class ApiMetricsRepository implements OnModuleInit {
   /**
    * 배치 저장 (여러 메트릭 한 번에 저장)
    */
-  async saveBatch(metrics: HttpMetricData[]): Promise<void> {
+  async saveBatch(metrics: CreateApiMetricDto[]): Promise<void> {
     if (metrics.length === 0) return;
 
     const client: PoolClient = await this.pool.connect();
@@ -106,7 +120,7 @@ export class ApiMetricsRepository implements OnModuleInit {
 
       for (const metric of metrics) {
         const values = [
-          new Date(metric.timestamp),
+          new Date(metric.timestamp || new Date()),
           metric.service,
           metric.endpoint || null,
           metric.method || null,
@@ -173,11 +187,13 @@ export class ApiMetricsRepository implements OnModuleInit {
         bucket,
         service,
         endpoint,
+        method,
         request_count,
+        avg_latency_ms,
+        max_latency_ms,
+        min_latency_ms,
         error_count,
-        avg_latency,
-        p95_latency,
-        p99_latency
+        error_rate
       FROM api_metrics_1min
       WHERE service = $1
         AND bucket >= $2
