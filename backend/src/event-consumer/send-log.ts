@@ -1,7 +1,6 @@
 import { Kafka } from "kafkajs";
 
 const brokers = (process.env.KAFKA_BROKERS ?? "localhost:9092").split(",");
-const logTopic = process.env.KAFKA_LOG_TOPIC ?? "logs";
 const apiMetricsTopic = process.env.KAFKA_API_METRICS_TOPIC ?? "metrics.api";
 const systemMetricsTopic =
   process.env.KAFKA_SYSTEM_METRICS_TOPIC ?? "metrics.system";

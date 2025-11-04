@@ -6,7 +6,12 @@ import { LogInfrastructureModule } from "./logs/logs.module";
 import { MetricsModule } from "./metrics/metrics.module";
 
 @Module({
-  imports: [LogInfrastructureModule, AppLogModule, HttpLogModule, MetricsModule],
+  imports: [
+    LogInfrastructureModule,
+    AppLogModule,
+    HttpLogModule,
+    MetricsModule,
+  ],
   controllers: [AppController],
   providers: [],
 })

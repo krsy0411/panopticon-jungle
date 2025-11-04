@@ -12,9 +12,7 @@ import type { CreateSystemMetricDto } from "../metrics/system/dto/create-system-
 export class EventConsumer {
   private readonly logger = new Logger(EventConsumer.name);
 
-  constructor(
-    private readonly metricsAggregator: MetricsAggregatorService,
-  ) {}
+  constructor(private readonly metricsAggregator: MetricsAggregatorService) {}
 
   /**
    * API 메트릭 이벤트 처리
