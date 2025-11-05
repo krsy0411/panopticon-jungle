@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { Transform } from "class-transformer";
 
 /**
  * 시스템 메트릭 생성 DTO
@@ -11,11 +12,19 @@ import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
 export class CreateSystemMetricDto {
   /**
    * 메트릭 수집 시각 (Unix timestamp, milliseconds)
-   * 미제공시 현재 시각 사용
+   * 입력: @timestamp, timestamp, time (문자열 또는 숫자)
    */
-  @IsOptional()
   @IsNumber()
-  timestamp?: number;
+  @Transform(({ obj }) => {
+    const value = obj["@timestamp"] ?? obj.timestamp ?? obj.time;
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const parsed = new Date(value).getTime();
+      return isNaN(parsed) ? Date.now() : parsed;
+    }
+    return Date.now();
+  })
+  timestamp!: number;
 
   /**
    * 서비스명 (예: "user-api", "payment-service")
@@ -26,10 +35,11 @@ export class CreateSystemMetricDto {
 
   /**
    * Pod 이름 (Kubernetes pod name)
+   * 선택적 필드 - 시스템 레벨 메트릭에서는 미제공 가능
    */
   @IsString()
-  @IsNotEmpty()
-  podName!: string;
+  @IsOptional()
+  podName?: string;
 
   /**
    * 노드명 (Kubernetes node name)
@@ -48,42 +58,47 @@ export class CreateSystemMetricDto {
   /**
    * CPU 사용률 (%, 0-100, 소수점 지원)
    * 예: 45.5 = CPU 45.5% 사용 중
+   * TimescaleDB의 cpu_usage_percent 컬럼에 매핑됨
    */
   @IsNumber()
   @IsOptional()
-  cpu?: number;
+  cpuUsagePercent?: number;
 
   /**
-   * 메모리 사용률 (%, 0-100, 소수점 지원)
-   * 예: 52.3 = 메모리 52.3% 사용 중
+   * 메모리 사용량 (bytes, 소수점 지원)
+   * 예: 52428800 = 50MB 사용 중
+   * TimescaleDB의 memory_usage_bytes 컬럼에 매핑됨
    */
   @IsNumber()
   @IsOptional()
-  memory?: number;
+  memoryUsageBytes?: number;
 
   /**
    * 디스크 사용률 (%, 0-100, 소수점 지원)
    * 예: 65.1 = 디스크 65.1% 사용 중
+   * TimescaleDB의 disk_usage_percent 컬럼에 매핑됨
    */
   @IsNumber()
   @IsOptional()
-  disk?: number;
+  diskUsagePercent?: number;
 
   /**
    * 네트워크 수신 바이트 (bytes, 소수점 지원)
    * 예: 1024000 = 1MB 수신
+   * TimescaleDB의 network_rx_bytes 컬럼에 매핑됨
    */
   @IsNumber()
   @IsOptional()
-  networkIn?: number;
+  networkRxBytes?: number;
 
   /**
    * 네트워크 송신 바이트 (bytes, 소수점 지원)
    * 예: 512000 = 512KB 송신
+   * TimescaleDB의 network_tx_bytes 컬럼에 매핑됨
    */
   @IsNumber()
   @IsOptional()
-  networkOut?: number;
+  networkTxBytes?: number;
 
   /**
    * 추가 메타데이터 (JSON 형식)

@@ -1,130 +1,22 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 import { Injectable } from "@nestjs/common";
-import { ApiMetricsRepository } from "../api/api-metrics.repository";
 import { SystemMetricsRepository } from "../system/system-metrics.repository";
+import { HttpMetricsRepository } from "../http/http-metrics.repository";
 
 /**
- * 통합 메트릭 조회 서비스
- * API 메트릭과 시스템 메트릭 조회 기능 제공
+ * 메트릭 조회 서비스
+ * 시계열 메트릭 조회 기능 제공
+ * Repository의 데이터를 병합하여 비즈니스 로직 수행
  */
 @Injectable()
 export class MetricsService {
   constructor(
-    private readonly apiMetricsRepo: ApiMetricsRepository,
     private readonly systemMetricsRepo: SystemMetricsRepository,
+    private readonly httpMetricsRepo: HttpMetricsRepository,
   ) {}
 
-  // ========== API 메트릭 조회 ==========
-
   /**
-   * 최근 API 메트릭 조회
-   */
-  async getRecentApiMetrics(service: string, limit: number = 100) {
-    return this.apiMetricsRepo.getRecentMetrics(service, limit);
-  }
-
-  /**
-   * 시간 범위별 집계 API 메트릭 조회
-   */
-  async getAggregatedApiMetrics(
-    service: string,
-    windowMinutes: number = 5,
-    limit: number = 100,
-  ) {
-    const endTime = new Date();
-    const startTime = new Date(endTime.getTime() - windowMinutes * 60 * 1000);
-    const results = await this.apiMetricsRepo.getAggregatedMetrics(
-      service,
-      startTime,
-      endTime,
-    );
-    return results.slice(0, limit);
-  }
-
-  // ========== 시스템 메트릭 조회 ==========
-
-  /**
-   * 최근 시스템 메트릭 조회 (서비스별)
-   */
-  async getRecentSystemMetrics(service: string, limit: number = 100) {
-    return this.systemMetricsRepo.getRecentMetrics(service, limit);
-  }
-
-  /**
-   * 최근 시스템 메트릭 조회 (Pod별)
-   */
-  async getRecentSystemMetricsByPod(podName: string, limit: number = 100) {
-    return this.systemMetricsRepo.getRecentMetricsByPod(podName, limit);
-  }
-
-  /**
-   * 시간 범위별 집계 시스템 메트릭 조회
-   */
-  async getAggregatedSystemMetrics(
-    service: string,
-    windowMinutes: number = 5,
-    bucketSize: "1min" | "5min" = "1min",
-    limit: number = 100,
-  ) {
-    const endTime = new Date();
-    const startTime = new Date(endTime.getTime() - windowMinutes * 60 * 1000);
-    const results = await this.systemMetricsRepo.getAggregatedMetrics(
-      service,
-      startTime,
-      endTime,
-      bucketSize,
-    );
-    return results.slice(0, limit);
-  }
-
-  // ========== 공통 조회 ==========
-
-  /**
-   * 활성 서비스 목록 조회 (API + System 통합)
-   */
-  async getActiveServices(): Promise<{
-    api: string[];
-    system: string[];
-    all: string[];
-  }> {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-
-    // 병렬로 조회
-    const [apiMetrics, systemServices] = await Promise.all([
-      this.apiMetricsRepo.getRecentMetrics("", 1000),
-      this.systemMetricsRepo.getActiveServices(oneHourAgo),
-    ]);
-
-    const apiServices = Array.from(new Set(apiMetrics.map((m) => m.service)));
-    const allServices = Array.from(
-      new Set([...apiServices, ...systemServices]),
-    );
-
-    return {
-      api: apiServices,
-      system: systemServices,
-      all: allServices,
-    };
-  }
-
-  // ========== 대시보드 조회 ==========
-
-  /**
-   * 대시보드 상단 메트릭 요약 조회
-   * 최근 5분간 데이터 기준
-   */
-  async getMetricsSummary(): Promise<{
-    status_2xx: number;
-    status_4xx: number;
-    status_5xx: number;
-    request_per_min: number;
-    p95_latency: number;
-  }> {
-    return await this.apiMetricsRepo.getMetricsSummary();
-  }
-
-  /**
-   * 대시보드 하단 시계열 데이터 조회
+   * 시계열 데이터 조회
+   * Repository에서 개별 데이터를 조회하여 Service 레이어에서 병합
    * @param range 조회 기간 (예: 12h, 24h, 7d)
    * @param interval 데이터 간격 (예: 1m, 5m, 1h)
    */
@@ -142,39 +34,112 @@ export class MetricsService {
       memory: number;
     }>;
   }> {
-    // range를 시간(분)으로 변환
     const rangeMinutes = this.parseRangeToMinutes(range);
     const endTime = new Date();
     const startTime = new Date(endTime.getTime() - rangeMinutes * 60 * 1000);
-
-    // interval을 분 단위로 변환
     const intervalMinutes = this.parseIntervalToMinutes(interval);
 
-    // 병렬로 API 메트릭과 시스템 메트릭 조회
-    const [apiData, systemData] = await Promise.all([
-      this.apiMetricsRepo.getTimeseriesData(
+    // Repository에서 각각 데이터 조회 (단순 쿼리만)
+    const [systemMetrics, httpMetrics] = await Promise.all([
+      this.systemMetricsRepo.findAggregatedByTimeRange(
         startTime,
         endTime,
         intervalMinutes,
       ),
-      this.systemMetricsRepo.getTimeseriesData(
+      this.httpMetricsRepo.findAggregatedByTimeRange(
         startTime,
         endTime,
         intervalMinutes,
       ),
     ]);
 
-    // 데이터 병합 (timestamp 기준)
-    const mergedData = this.mergeTimeseriesData(
-      apiData as Array<{ timestamp: Date; requests: number; errors: number }>,
-      systemData as Array<{ timestamp: Date; cpu: number; memory: number }>,
-    );
+    // Service 레이어에서 비즈니스 로직: 두 데이터 병합
+    const mergedData = this.mergeMetrics(systemMetrics, httpMetrics);
 
     return {
       range,
       interval,
       data: mergedData,
     };
+  }
+
+  /**
+   * 시스템 메트릭과 HTTP 메트릭을 병합 (비즈니스 로직)
+   * FULL OUTER JOIN과 동일한 결과 생성
+   */
+  private mergeMetrics(
+    systemMetrics: Array<{
+      bucket: Date;
+      avgCpu: number;
+      avgMemoryBytes: number;
+    }>,
+    httpMetrics: Array<{
+      bucket: Date;
+      totalRequests: number;
+      avgErrorRate: number;
+    }>,
+  ): Array<{
+    timestamp: string;
+    requests: number;
+    errors: number;
+    cpu: number;
+    memory: number;
+  }> {
+    // 모든 고유한 bucket(timestamp)을 수집
+    const bucketMap = new Map<
+      number,
+      {
+        timestamp: Date;
+        requests: number;
+        errors: number;
+        cpu: number;
+        memory: number;
+      }
+    >();
+
+    // 시스템 메트릭 데이터 추가
+    for (const metric of systemMetrics) {
+      const time = metric.bucket.getTime();
+      bucketMap.set(time, {
+        timestamp: metric.bucket,
+        requests: 0,
+        errors: 0,
+        cpu: Math.round(metric.avgCpu * 100) / 100, // 소수점 2자리
+        memory:
+          Math.round((metric.avgMemoryBytes / (1024 * 1024 * 1024)) * 100) /
+          100, // GB 단위
+      });
+    }
+
+    // HTTP 메트릭 데이터 병합
+    for (const metric of httpMetrics) {
+      const time = metric.bucket.getTime();
+      const existing = bucketMap.get(time);
+
+      if (existing) {
+        existing.requests = metric.totalRequests;
+        existing.errors = Math.round(metric.avgErrorRate * 100) / 100; // 소수점 2자리
+      } else {
+        bucketMap.set(time, {
+          timestamp: metric.bucket,
+          requests: metric.totalRequests,
+          errors: Math.round(metric.avgErrorRate * 100) / 100,
+          cpu: 0,
+          memory: 0,
+        });
+      }
+    }
+
+    // 시간 순으로 정렬하여 반환
+    return Array.from(bucketMap.values())
+      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime())
+      .map((item) => ({
+        timestamp: item.timestamp.toISOString(),
+        requests: item.requests,
+        errors: item.errors,
+        cpu: item.cpu,
+        memory: item.memory,
+      }));
   }
 
   /**
@@ -213,74 +178,5 @@ export class MetricsService {
       default:
         return 5; // 기본값: 5분
     }
-  }
-
-  /**
-   * API 메트릭과 시스템 메트릭을 timestamp 기준으로 병합
-   */
-  private mergeTimeseriesData(
-    apiData: Array<{
-      timestamp: Date;
-      requests: number;
-      errors: number;
-    }>,
-    systemData: Array<{
-      timestamp: Date;
-      cpu: number;
-      memory: number;
-    }>,
-  ): Array<{
-    timestamp: string;
-    requests: number;
-    errors: number;
-    cpu: number;
-    memory: number;
-  }> {
-    const dataMap = new Map<
-      string,
-      {
-        timestamp: string;
-        requests: number;
-        errors: number;
-        cpu: number;
-        memory: number;
-      }
-    >();
-
-    // API 데이터 추가
-    for (const item of apiData) {
-      const timestamp = item.timestamp.toISOString();
-      dataMap.set(timestamp, {
-        timestamp,
-        requests: item.requests,
-        errors: item.errors,
-        cpu: 0,
-        memory: 0,
-      });
-    }
-
-    // 시스템 데이터 병합
-    for (const item of systemData) {
-      const timestamp = item.timestamp.toISOString();
-      const existing = dataMap.get(timestamp);
-      if (existing) {
-        existing.cpu = item.cpu;
-        existing.memory = item.memory;
-      } else {
-        dataMap.set(timestamp, {
-          timestamp,
-          requests: 0,
-          errors: 0,
-          cpu: item.cpu,
-          memory: item.memory,
-        });
-      }
-    }
-
-    // 시간순 정렬
-    return Array.from(dataMap.values()).sort(
-      (a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
-    );
   }
 }

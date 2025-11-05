@@ -111,6 +111,14 @@ data:
         Rule          $log_type ^application$ kube.app false
         Emitter_Name  re_emitted
 
+    # 4단계: log-collector 필드 추가
+    [FILTER]
+        Name    modify
+        Match   metrics.system.log-collector
+        Add     service log-collector
+        Add     namespace default
+        Add     nodeName kind-control-plane
+
     # === 공통 정리 ===
 
     # 불필요한 필드 제거

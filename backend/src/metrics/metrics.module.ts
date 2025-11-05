@@ -2,23 +2,35 @@ import { Module } from "@nestjs/common";
 import { MetricsController } from "./metrics.controller";
 import { MetricsService } from "./services/metrics.service";
 import { MetricsAggregatorService } from "./services/metrics-aggregator.service";
-import { ApiMetricsRepository } from "./api/api-metrics.repository";
+import { HttpLogAggregatorService } from "./services/http-log-aggregator.service";
 import { SystemMetricsRepository } from "./system/system-metrics.repository";
+import { HttpMetricsRepository } from "./http/http-metrics.repository";
+import { TimescaleConnectionService } from "./common/timescale-connection.service";
+import { TimescaleSchemaService } from "./common/timescale-schema.service";
 
 /**
- * 통합 메트릭 모듈
- * API 메트릭과 시스템 메트릭 관리
+ * 메트릭 모듈
+ * 시스템 메트릭 및 HTTP 로그 집계 관리
  */
 @Module({
   controllers: [MetricsController],
   providers: [
+    // Database Connection & Schema
+    TimescaleConnectionService,
+    TimescaleSchemaService,
     // Repositories
-    ApiMetricsRepository,
     SystemMetricsRepository,
+    HttpMetricsRepository,
     // Services
     MetricsService,
     MetricsAggregatorService,
+    HttpLogAggregatorService,
   ],
-  exports: [MetricsService, MetricsAggregatorService],
+  exports: [
+    MetricsService,
+    MetricsAggregatorService,
+    HttpLogAggregatorService,
+    TimescaleConnectionService,
+  ],
 })
 export class MetricsModule {}
