@@ -1,8 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
-import {
-  HttpMetricsRepository,
-  type CreateHttpMetricDto,
-} from "../http/http-metrics.repository";
+import { HttpMetricsRepository } from "../http/http-metrics.repository";
+import { CreateHttpMetricDto } from "../http/dto/create-http-metric.dto";
 
 /**
  * HTTP 로그를 실시간으로 집계하여 TimescaleDB에 저장하는 서비스
@@ -36,7 +34,7 @@ export class HttpLogAggregatorService {
     const errorRate = isError ? 100 : 0;
 
     const metric: CreateHttpMetricDto = {
-      time: bucketTimestamp,
+      timestamp: bucketTimestamp,
       service,
       requests: 1, // 1개의 요청
       errors: errorRate,

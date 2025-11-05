@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator";
+import { Transform } from "class-transformer";
 
 /**
  * 시스템 메트릭 생성 DTO
@@ -12,11 +13,13 @@ export class CreateSystemMetricDto {
   /**
    * 메트릭 수집 시각 (Unix timestamp, milliseconds)
    * 미제공시 현재 시각 사용
-   * TimescaleDB의 time 컬럼에 매핑됨
+   * TimescaleDB의 timestamp 컬럼에 매핑됨
+   * 입력 필드명: @timestamp, timestamp, time (하위 호환성)
    */
   @IsOptional()
   @IsNumber()
-  time?: number;
+  @Transform(({ obj }) => obj["@timestamp"] ?? obj.timestamp ?? obj.time)
+  timestamp?: number;
 
   /**
    * 서비스명 (예: "user-api", "payment-service")
@@ -27,10 +30,11 @@ export class CreateSystemMetricDto {
 
   /**
    * Pod 이름 (Kubernetes pod name)
+   * 선택적 필드 - 시스템 레벨 메트릭에서는 미제공 가능
    */
   @IsString()
-  @IsNotEmpty()
-  podName!: string;
+  @IsOptional()
+  podName?: string;
 
   /**
    * 노드명 (Kubernetes node name)

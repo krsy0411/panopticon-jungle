@@ -43,7 +43,7 @@ export class MetricsConsumer {
         `[SYSTEM METRIC] service=${metric.service} pod=${metric.podName} ` +
           `CPU=${metric.cpuUsagePercent?.toFixed(2)}% Memory=${(metric.memoryUsageBytes ? metric.memoryUsageBytes / (1024 * 1024) : 0).toFixed(2)}Mi ` +
           `Disk=${metric.diskUsagePercent?.toFixed(2)}% NetworkIn=${(metric.networkRxBytes ? metric.networkRxBytes / 1024 : 0).toFixed(2)}KB/s NetworkOut=${(metric.networkTxBytes ? metric.networkTxBytes / 1024 : 0).toFixed(2)}KB/s ` +
-          `timestamp=${new Date(metric.time || Date.now()).toISOString()}`,
+          `timestamp=${new Date(metric.timestamp || Date.now()).toISOString()}`,
       );
 
       // 실시간 집계 및 저장 (TimescaleDB)

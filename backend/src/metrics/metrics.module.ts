@@ -5,6 +5,8 @@ import { MetricsAggregatorService } from "./services/metrics-aggregator.service"
 import { HttpLogAggregatorService } from "./services/http-log-aggregator.service";
 import { SystemMetricsRepository } from "./system/system-metrics.repository";
 import { HttpMetricsRepository } from "./http/http-metrics.repository";
+import { TimescaleConnectionService } from "./common/timescale-connection.service";
+import { TimescaleSchemaService } from "./common/timescale-schema.service";
 
 /**
  * 메트릭 모듈
@@ -13,6 +15,9 @@ import { HttpMetricsRepository } from "./http/http-metrics.repository";
 @Module({
   controllers: [MetricsController],
   providers: [
+    // Database Connection & Schema
+    TimescaleConnectionService,
+    TimescaleSchemaService,
     // Repositories
     SystemMetricsRepository,
     HttpMetricsRepository,
@@ -21,6 +26,11 @@ import { HttpMetricsRepository } from "./http/http-metrics.repository";
     MetricsAggregatorService,
     HttpLogAggregatorService,
   ],
-  exports: [MetricsService, MetricsAggregatorService, HttpLogAggregatorService],
+  exports: [
+    MetricsService,
+    MetricsAggregatorService,
+    HttpLogAggregatorService,
+    TimescaleConnectionService,
+  ],
 })
 export class MetricsModule {}

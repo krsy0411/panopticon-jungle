@@ -1,77 +1,16 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
-import { Pool } from "pg";
-
-/**
- * HTTP 메트릭 저장 DTO
- */
-export interface CreateHttpMetricDto {
-  time: number; // Unix timestamp
-  service: string;
-  requests: number;
-  errors: number; // 에러율 (%)
-}
-
-/**
- * HTTP 메트릭 레코드
- */
-export interface HttpMetricRecord {
-  time: Date;
-  service: string;
-  requests: number;
-  errors: number;
-}
+import { Injectable, Logger } from "@nestjs/common";
+import { TimescaleConnectionService } from "../common/timescale-connection.service";
+import { CreateHttpMetricDto } from "./dto/create-http-metric.dto";
 
 /**
  * HTTP 메트릭 저장소
  * TimescaleDB에 HTTP 로그 집계 데이터 저장
  */
 @Injectable()
-export class HttpMetricsRepository implements OnModuleInit {
+export class HttpMetricsRepository {
   private readonly logger = new Logger(HttpMetricsRepository.name);
-  private pool: Pool;
 
-  async onModuleInit() {
-    // PostgreSQL/TimescaleDB 연결 설정
-    this.pool = new Pool({
-      host: process.env.TIMESCALE_HOST || "localhost",
-      port: parseInt(process.env.TIMESCALE_PORT || "5433"),
-      database: process.env.TIMESCALE_DATABASE || "panopticon",
-      user: process.env.TIMESCALE_USER || "admin",
-      password: process.env.TIMESCALE_PASSWORD || "admin123",
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    });
-
-    this.pool.on("connect", () => {
-      this.logger.log("TimescaleDB connected (HttpMetrics)");
-    });
-
-    this.pool.on("error", (err: Error) => {
-      this.logger.error(
-        "TimescaleDB connection error (HttpMetrics)",
-        err.stack,
-      );
-    });
-
-    // 연결 테스트
-    try {
-      const client = await this.pool.connect();
-      await client.query("SELECT 1");
-      client.release();
-      this.logger.log(
-        `TimescaleDB connection verified (HttpMetrics): ${process.env.TIMESCALE_HOST}:${process.env.TIMESCALE_PORT}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        "Failed to connect to TimescaleDB on initialization (HttpMetrics)",
-        error instanceof Error ? error.stack : String(error),
-      );
-      throw error;
-    }
-  }
+  constructor(private readonly connectionService: TimescaleConnectionService) {}
 
   /**
    * 단일 HTTP 메트릭 저장 (UPSERT)
@@ -79,11 +18,11 @@ export class HttpMetricsRepository implements OnModuleInit {
   async save(createMetricDto: CreateHttpMetricDto): Promise<void> {
     const query = `
       INSERT INTO http_metrics (
-        time, service, requests, errors
+        timestamp, service, requests, errors
       ) VALUES (
         $1, $2, $3, $4
       )
-      ON CONFLICT (time, service) DO UPDATE SET
+      ON CONFLICT (timestamp, service) DO UPDATE SET
         requests = http_metrics.requests + EXCLUDED.requests,
         errors = (
           (http_metrics.requests * http_metrics.errors + EXCLUDED.requests * EXCLUDED.errors)
@@ -92,14 +31,14 @@ export class HttpMetricsRepository implements OnModuleInit {
     `;
 
     const values = [
-      new Date(createMetricDto.time),
+      new Date(createMetricDto.timestamp ?? Date.now()),
       createMetricDto.service,
       createMetricDto.requests,
       createMetricDto.errors,
     ];
 
     try {
-      await this.pool.query(query, values);
+      await this.connectionService.getPool().query(query, values);
     } catch (error) {
       this.logger.error(
         "Failed to save HTTP metric to TimescaleDB",
@@ -110,10 +49,49 @@ export class HttpMetricsRepository implements OnModuleInit {
   }
 
   /**
-   * 연결 종료
+   * HTTP 메트릭 집계 조회 (단순 쿼리만 수행)
+   * Service 레이어에서 병합하여 사용
    */
-  async onModuleDestroy() {
-    await this.pool.end();
-    this.logger.log("TimescaleDB connection pool closed (HttpMetrics)");
+  async findAggregatedByTimeRange(
+    startTime: Date,
+    endTime: Date,
+    intervalMinutes: number,
+  ): Promise<
+    Array<{
+      bucket: Date;
+      totalRequests: number;
+      avgErrorRate: number;
+    }>
+  > {
+    const query = `
+      SELECT
+        time_bucket($1::interval, timestamp) as bucket,
+        SUM(requests) as total_requests,
+        SUM(requests * errors) / NULLIF(SUM(requests), 0) as avg_error_rate
+      FROM http_metrics
+      WHERE timestamp >= $2 AND timestamp <= $3
+      GROUP BY bucket
+      ORDER BY bucket
+    `;
+
+    try {
+      const result = await this.connectionService.getPool().query<{
+        bucket: Date;
+        total_requests: string;
+        avg_error_rate: string;
+      }>(query, [`${intervalMinutes} minutes`, startTime, endTime]);
+
+      return result.rows.map((row) => ({
+        bucket: row.bucket,
+        totalRequests: Number(row.total_requests) || 0,
+        avgErrorRate: Number(row.avg_error_rate) || 0,
+      }));
+    } catch (error) {
+      this.logger.error(
+        "Failed to query aggregated HTTP metrics",
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw error;
+    }
   }
 }
