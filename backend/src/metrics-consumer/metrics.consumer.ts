@@ -25,7 +25,7 @@ export class MetricsConsumer {
    * - Pod/Container 레벨 모니터링
    * - Saturation 실시간 감지
    */
-  @EventPattern(process.env.KAFKA_SYSTEM_METRICS_TOPIC ?? "metrics.system")
+  @EventPattern(process.env.KAFKA_SYSTEM_METRICS_TOPIC ?? "logs.metric")
   async handleSystemMetricEvent(@Ctx() context: KafkaContext): Promise<void> {
     const value = context.getMessage().value;
     if (value == null) {

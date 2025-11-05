@@ -12,14 +12,19 @@ import { Transform } from "class-transformer";
 export class CreateSystemMetricDto {
   /**
    * 메트릭 수집 시각 (Unix timestamp, milliseconds)
-   * 미제공시 현재 시각 사용
-   * TimescaleDB의 timestamp 컬럼에 매핑됨
-   * 입력 필드명: @timestamp, timestamp, time (하위 호환성)
+   * 입력: @timestamp, timestamp, time (문자열 또는 숫자)
    */
-  @IsOptional()
   @IsNumber()
-  @Transform(({ obj }) => obj["@timestamp"] ?? obj.timestamp ?? obj.time)
-  timestamp?: number;
+  @Transform(({ obj }) => {
+    const value = obj["@timestamp"] ?? obj.timestamp ?? obj.time;
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const parsed = new Date(value).getTime();
+      return isNaN(parsed) ? Date.now() : parsed;
+    }
+    return Date.now();
+  })
+  timestamp!: number;
 
   /**
    * 서비스명 (예: "user-api", "payment-service")
