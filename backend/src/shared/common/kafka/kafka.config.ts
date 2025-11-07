@@ -35,7 +35,9 @@ export function createKafkaMicroserviceOptions(
   const brokers = params.brokers ?? parseKafkaBrokers();
 
   if (brokers.length === 0) {
-    throw new Error("Kafka microservice configuration requires at least one broker");
+    throw new Error(
+      "Kafka microservice configuration requires at least one broker",
+    );
   }
 
   return {
