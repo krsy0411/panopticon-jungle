@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/stream-processor",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.stream-processor.tsbuildinfo"
+  },
+  "include": [
+    "src/shared/common/**/*",
+    "src/shared/logs/**/*",
+    "src/shared/metrics/**/*",
+    "src/stream-processor/**/*"
+  ],
+  "exclude": [
+    "src/query-api/**/*",
+    "test",
+    "dist",
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}

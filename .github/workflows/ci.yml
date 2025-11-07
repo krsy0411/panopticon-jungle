@@ -46,14 +46,7 @@ jobs:
         working-directory: backend
         run: npm run lint
       
-      # 유닛 테스트
-      # - jest를 커버리지 모드로 실행합니다.
-      # - --passWithNoTests: 테스트가 하나도 없을 때 실패하지 않도록 허용합니다 (CI가 중단되는 것을 방지).
-      - name: Run unit tests (tolerate no tests)
-        id: run-tests
-        working-directory: backend
-        # jest 실행 시 테스트가 없으면 실패하지 않도록 --passWithNoTests 사용
-        run: npm run test -- --passWithNoTests
+      # (테스트 폴더가 제거되어 별도 테스트 단계는 실행하지 않습니다)
 
   # --------------------
   # Frontend job
