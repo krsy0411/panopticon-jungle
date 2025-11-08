@@ -18,7 +18,7 @@ export class TimescaleConnectionService
   private pool: Pool;
 
   async onModuleInit() {
-    // 테스트 후 삭제
+    // 테스트 후 삭제1
     if (process.env.SKIP_TIMESCALE_INIT === "true") {
       this.logger.warn("Skipping TimescaleDB initialization (SKIP_TIMESCALE_INIT=true)");
       return;
