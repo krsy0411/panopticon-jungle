@@ -128,3 +128,6 @@ dist-ssr/
 *.pid
 *.seed
 *.pid.lock
+
+# 환경변수
+.env.*
