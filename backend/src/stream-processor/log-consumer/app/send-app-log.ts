@@ -40,7 +40,7 @@ async function main(): Promise<void> {
           timestamp: new Date().toISOString(),
           service: "payment-service",
           level: "info",
-          message: "test message",
+          message: "test message 요기 변경",
         }),
       },
     ],

@@ -3,7 +3,7 @@ name: CD - Build & Deploy
 on:
   push:
     branches:
-      - main
+      - feature/CICD
   workflow_dispatch:
 
 env:
