@@ -15,6 +15,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/query-api/main",
+    "start:query-api": "ts-node -r tsconfig-paths/register src/query-api/main.ts",
     "start:log-consumer": "ts-node -r tsconfig-paths/register src/stream-processor/log-consumer/log-consumer.main.ts",
     "start:metrics-consumer": "ts-node -r tsconfig-paths/register src/stream-processor/metrics-consumer/metrics-consumer.main.ts",
     "start:stream-processor": "ts-node -r tsconfig-paths/register src/stream-processor/main.ts",

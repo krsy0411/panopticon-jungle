@@ -82,12 +82,12 @@ jobs:
           docker push "${ECR_URI}:${GITHUB_SHA}"
           docker push "${ECR_URI}:latest"
 
-      # - name: Trigger ECS deployment
-      #   run: |
-      #     aws ecs update-service \
-      #       --cluster "$QUERY_ECS_CLUSTER" \
-      #       --service "$QUERY_ECS_SERVICE" \
-      #       --force-new-deployment
+      - name: Trigger ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster "$QUERY_ECS_CLUSTER" \
+            --service "$QUERY_ECS_SERVICE" \
+            --force-new-deployment
 
   deploy-stream:
     name: Build & deploy stream processor
@@ -126,9 +126,9 @@ jobs:
           docker push "${ECR_URI}:${GITHUB_SHA}"
           docker push "${ECR_URI}:latest"
 
-      # - name: Trigger ECS deployment
-      #   run: |
-      #     aws ecs update-service \
-      #       --cluster "$STREAM_ECS_CLUSTER" \
-      #       --service "$STREAM_ECS_SERVICE" \
-      #       --force-new-deployment
+      - name: Trigger ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster "$STREAM_ECS_CLUSTER" \
+            --service "$STREAM_ECS_SERVICE" \
+            --force-new-deployment

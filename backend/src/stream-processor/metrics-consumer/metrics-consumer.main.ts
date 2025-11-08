@@ -1,5 +1,5 @@
-import { config } from "dotenv";
-config(); // Load .env file before anything else
+import { loadEnv } from "../../shared/config/load-env";
+loadEnv();
 
 import { createMetricsConsumerMicroservice } from "./metrics-consumer.bootstrap";
 
