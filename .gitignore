@@ -1,0 +1,11 @@
+# Root-level ignore rules
+.DS_Store
+node_modules/
+dist/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+# Keep project-specific ignores inside subdirectories (.gitignore within backend/, frontend/, etc.)
