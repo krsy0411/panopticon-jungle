@@ -17,7 +17,7 @@ export class TimescaleConnectionService
   private readonly logger = new Logger(TimescaleConnectionService.name);
   private pool: Pool;
 
-  async onModuleInit() { 
+  async onModuleInit() {
     // PostgreSQL/TimescaleDB 연결 설정
     this.pool = new Pool({
       host: process.env.TIMESCALE_HOST || "localhost",
