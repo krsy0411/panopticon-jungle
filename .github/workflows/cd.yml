@@ -3,7 +3,8 @@ name: CD - Build & Deploy
 on:
   push:
     branches:
-      - feature/CICD1
+      - feature/CICDv2
+      # - main
   workflow_dispatch:
 
 env:
@@ -15,6 +16,12 @@ env:
   STREAM_ECR_REPOSITORY: ${{ secrets.STREAM_ECR_REPOSITORY }}
   STREAM_ECS_CLUSTER: ${{ secrets.STREAM_ECS_CLUSTER }}
   STREAM_ECS_SERVICE: ${{ secrets.STREAM_ECS_SERVICE }}
+  APPAPI_ECR_REPOSITORY: ${{ secrets.APPAPI_ECR_REPOSITORY }}
+  APPAPI_ECS_CLUSTER: ${{ secrets.APPAPI_ECS_CLUSTER }}
+  APPAPI_ECS_SERVICE: ${{ secrets.APPAPI_ECS_SERVICE }}
+  PRODUCER_ECR_REPOSITORY: ${{ secrets.PRODUCER_ECR_REPOSITORY }}
+  PRODUCER_ECS_CLUSTER: ${{ secrets.PRODUCER_ECS_CLUSTER }}
+  PRODUCER_ECS_SERVICE: ${{ secrets.PRODUCER_ECS_SERVICE }}
 
 jobs:
   detect:
@@ -23,6 +30,8 @@ jobs:
     outputs:
       query_api: ${{ steps.filter.outputs.query_api }}
       stream_processor: ${{ steps.filter.outputs.stream_processor }}
+      app_api: ${{ steps.filter.outputs.app_api }}
+      producer: ${{ steps.filter.outputs.producer }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -44,6 +53,10 @@ jobs:
               - 'backend/package.json'
               - 'backend/package-lock.json'
               - 'backend/Dockerfile'
+            app_api:
+              - 'app_api/**'
+            producer:
+              - 'producerServer/**'
 
   deploy-query:
     name: Build & deploy query API
@@ -126,9 +139,97 @@ jobs:
           docker push "${ECR_URI}:${GITHUB_SHA}"
           docker push "${ECR_URI}:latest"
 
-      - name: Trigger ECS deployment
+      # - name: Trigger ECS deployment
+      #   run: |
+      #     aws ecs update-service \
+      #       --cluster "$STREAM_ECS_CLUSTER" \
+      #       --service "$STREAM_ECS_SERVICE" \
+      #       --force-new-deployment
+
+  deploy-app-api:
+    name: Build & deploy app_api
+    needs: detect
+    if: needs.detect.outputs.app_api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
         run: |
-          aws ecs update-service \
-            --cluster "$STREAM_ECS_CLUSTER" \
-            --service "$STREAM_ECS_SERVICE" \
-            --force-new-deployment
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "${ECR_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+      - name: Build Docker image
+        working-directory: app_api
+        env:
+          IMAGE_NAME: app-api
+        run: |
+          docker build -f Dockerfile -t "$IMAGE_NAME:${GITHUB_SHA}" .
+
+      - name: Push image to ECR
+        env:
+          IMAGE_NAME: app-api
+        run: |
+          ECR_URI="${ECR_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${APPAPI_ECR_REPOSITORY}"
+          docker tag "$IMAGE_NAME:${GITHUB_SHA}" "${ECR_URI}:${GITHUB_SHA}"
+          docker tag "$IMAGE_NAME:${GITHUB_SHA}" "${ECR_URI}:latest"
+          docker push "${ECR_URI}:${GITHUB_SHA}"
+          docker push "${ECR_URI}:latest"
+
+      # - name: Trigger ECS deployment
+      #   run: |
+      #     aws ecs update-service \
+      #       --cluster "$APPAPI_ECS_CLUSTER" \
+      #       --service "$APPAPI_ECS_SERVICE" \
+      #       --force-new-deployment
+
+  deploy-producer:
+    name: Build & deploy producerServer
+    needs: detect
+    if: needs.detect.outputs.producer == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "${ECR_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+      - name: Build Docker image
+        working-directory: producerServer
+        env:
+          IMAGE_NAME: producer-server
+        run: |
+          docker build -f Dockerfile -t "$IMAGE_NAME:${GITHUB_SHA}" .
+
+      - name: Push image to ECR
+        env:
+          IMAGE_NAME: producer-server
+        run: |
+          ECR_URI="${ECR_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PRODUCER_ECR_REPOSITORY}"
+          docker tag "$IMAGE_NAME:${GITHUB_SHA}" "${ECR_URI}:${GITHUB_SHA}"
+          docker tag "$IMAGE_NAME:${GITHUB_SHA}" "${ECR_URI}:latest"
+          docker push "${ECR_URI}:${GITHUB_SHA}"
+          docker push "${ECR_URI}:latest"
+
+      # - name: Trigger ECS deployment
+      #   run: |
+      #     aws ecs update-service \
+      #       --cluster "$PRODUCER_ECS_CLUSTER" \
+      #       --service "$PRODUCER_ECS_SERVICE" \
+      #       --force-new-deployment
