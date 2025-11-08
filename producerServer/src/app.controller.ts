@@ -2,7 +2,7 @@ import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
 import { KafkaService } from './kafka/kafka.service';
 import { S3Service } from './s3/s3.service';
-// 임시
+
 @Controller()
 export class AppController {
   constructor(
