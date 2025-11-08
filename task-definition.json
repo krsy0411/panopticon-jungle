@@ -1,0 +1,63 @@
+{
+  "family": "panopticon-service-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "2048",
+  "memory": "8192",
+  "executionRoleArn": "arn:aws:iam::338952532870:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::338952532870:role/queryApiTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "service-api-1",
+      "image": "338952532870.dkr.ecr.ap-northeast-2.amazonaws.com/panopticon-service-api:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "hostPort": 3000,
+          "protocol": "tcp",
+          "name": "service-api-1-3000-tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "environment": [
+        {
+          "name": "DB_HOST",
+          "value": "panopticon-rdb.c3ci8m0ckxou.ap-northeast-2.rds.amazonaws.com"
+        },
+        {
+          "name": "DB_PORT",
+          "value": "5432"
+        },
+        {
+          "name": "DB_USER",
+          "value": "panopticonrdb"
+        },
+        {
+          "name": "DB_PASSWORD",
+          "value": "prdbnopticon"
+        },
+        {
+          "name": "DB_NAME",
+          "value": "panopticon"
+        },
+        {
+          "name": "DB_SSL",
+          "value": "true"
+        },
+        {
+          "name": "PORT",
+          "value": "3000"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/panopticon-service-api",
+          "awslogs-region": "ap-northeast-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
+    }
+  ]
+}
