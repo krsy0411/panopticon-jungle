@@ -18,6 +18,12 @@ export class TimescaleConnectionService
   private pool: Pool;
 
   async onModuleInit() {
+    // 테스트 후 삭제
+    if (process.env.SKIP_TIMESCALE_INIT === "true") {
+      this.logger.warn("Skipping TimescaleDB initialization (SKIP_TIMESCALE_INIT=true)");
+      return;
+    }
+    
     // PostgreSQL/TimescaleDB 연결 설정
     this.pool = new Pool({
       host: process.env.TIMESCALE_HOST || "localhost",
