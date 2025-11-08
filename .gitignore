@@ -41,6 +41,12 @@ backend/logs/
 backend/*.log
 !backend/src/logs/
 !backend/src/logs/**
+!backend/src/query-api/logs/
+!backend/src/query-api/logs/**
+!backend/src/shared/logs/
+!backend/src/shared/logs/**
+!backend/src/stream-processor/logs/
+!backend/src/stream-processor/logs/**
 
 # Frontend (Next.js)
 frontend/node_modules/
@@ -65,6 +71,12 @@ k8s-log-generator/*.log
 logs/
 !backend/src/logs/
 !backend/src/logs/**
+!backend/src/query-api/logs/
+!backend/src/query-api/logs/**
+!backend/src/shared/logs/
+!backend/src/shared/logs/**
+!backend/src/stream-processor/logs/
+!backend/src/stream-processor/logs/**
 
 # Temporary Files
 *.tmp
