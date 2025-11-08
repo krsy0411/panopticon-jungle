@@ -1,10 +1,93 @@
-# Panopticon_queryapi
+# Panopticon App API 서버
 
-DB 쿼리 + 검색 집계 API 서버
+서비스에 밀접한 요청 API 처리를 위한 서버
 
 # 👀 Panopticon
 
-“모든 서비스의 로그를 한눈에 관찰하다.”
+"모든 서비스의 로그를 한눈에 관찰하다."
+
+---
+
+## 🚀 Quick Start
+
+### 로컬 개발 환경
+
+1. **환경변수 설정**
+
+2. **로컬 PostgreSQL 실행**
+
+   ```bash
+   npm run docker:dev:up
+   ```
+
+3. **애플리케이션 실행**
+
+   ```bash
+   npm install
+   npm run start:dev
+   ```
+
+4. **서비스 확인**
+   - API: http://localhost:3000
+   - pgAdmin: http://localhost:5050 (admin@panopticon.local / admin)
+
+### 배포 환경
+
+배포 환경에서는 `.env` 파일을 사용하지 않고, ECS 환경변수를 직접 설정합니다.
+
+**필수 환경변수:**
+
+```bash
+NODE_ENV=production
+DB_HOST=<RDS 엔드포인트>
+DB_PORT=5432
+DB_USER=<DB 유저>
+DB_PASSWORD=<DB 패스워드>
+DB_NAME=panopticon
+DB_SSL=true
+```
+
+---
+
+## 📋 Available Scripts
+
+| 명령어                    | 설명                                  |
+| ------------------------- | ------------------------------------- |
+| `npm run start:dev`       | 로컬 개발 모드 (NODE_ENV=development) |
+| `npm run start:prod`      | 프로덕션 모드 (NODE_ENV=production)   |
+| `npm run docker:dev:up`   | 로컬 PostgreSQL 실행                  |
+| `npm run docker:dev:down` | 로컬 PostgreSQL 종료                  |
+| `npm run docker:dev:logs` | 로컬 서비스 로그 확인                 |
+| `npm run build`           | 프로덕션 빌드                         |
+
+---
+
+## 🔧 Environment Configuration
+
+### 로컬 개발 (.env.development)
+
+```bash
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=panopticonrdb
+DB_PASSWORD=localdev123
+DB_NAME=panopticon
+DB_SSL=false
+```
+
+### 배포 (ECS)
+
+```bash
+NODE_ENV=production
+DB_HOST=<RDS 엔드포인트>
+DB_PORT=5432
+DB_USER=<실제 유저>
+DB_PASSWORD=<실제 패스워드>
+DB_NAME=panopticon
+DB_SSL=true
+```
+
+---
 
 ## 🌿 Branch Naming
 
