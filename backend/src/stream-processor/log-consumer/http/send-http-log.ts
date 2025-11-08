@@ -1,5 +1,8 @@
 import { existsSync } from "fs";
 import { Kafka } from "kafkajs";
+import { loadEnv } from "../../../shared/config/load-env";
+
+loadEnv();
 
 const runningInsideDocker = existsSync("/.dockerenv");
 

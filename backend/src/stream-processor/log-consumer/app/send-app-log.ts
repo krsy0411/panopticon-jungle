@@ -1,5 +1,8 @@
 import { existsSync } from "fs";
 import { Kafka } from "kafkajs";
+import { loadEnv } from "../../../shared/config/load-env";
+
+loadEnv();
 
 const runningInsideDocker = existsSync("/.dockerenv");
 
@@ -40,7 +43,7 @@ async function main(): Promise<void> {
           timestamp: new Date().toISOString(),
           service: "payment-service",
           level: "info",
-          message: "test message",
+          message: "test message 요기 변경",
         }),
       },
     ],

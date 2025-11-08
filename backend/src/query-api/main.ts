@@ -2,10 +2,9 @@ import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { QueryApiModule } from "./query-api.module";
-import * as dotenv from "dotenv";
+import { loadEnv } from "../shared/config/load-env";
 
-// .env 파일 로드
-dotenv.config();
+loadEnv();
 
 async function bootstrap() {
   const app = await NestFactory.create(QueryApiModule);
