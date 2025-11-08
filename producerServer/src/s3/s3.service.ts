@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
   PutObjectCommand,
@@ -10,10 +11,17 @@ import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 export class S3Service {
   private s3Client: S3Client;
 
-  constructor() {
+  constructor(private configService: ConfigService) {
+    const awsEndpoint = this.configService.get<string>('AWS_ENDPOINT');
+
     this.s3Client = new S3Client({
-      region: process.env.AWS_REGION || 'ap-northeast-2',
+      region: this.configService.get('AWS_REGION') || 'ap-northeast-2',
       credentials: fromNodeProviderChain(),
+      // 로컬 개발 환경에서 LocalStack 사용
+      ...(awsEndpoint && {
+        endpoint: awsEndpoint,
+        forcePathStyle: true, // LocalStack 필수 옵션
+      }),
     });
   }
 

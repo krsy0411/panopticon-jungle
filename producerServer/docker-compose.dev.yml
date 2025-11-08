@@ -1,0 +1,69 @@
+version: '3.8'
+services:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: dev-kafka
+    ports:
+      - "9092:9092"   # 내부용(컨테이너 간) but 호스트 노출됨
+      - "9094:9094"   # 외부용(호스트 앱)
+    environment:
+      # --- KRaft 필수 ---
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      # --- 스토리지 초기화(클러스터 ID) ---
+      # 22자 base64 유사 형태 필요. 임의 문자열 예시:
+      KAFKA_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+      # --- 편의 설정 ---
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - dev-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: dev-kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    depends_on:
+      - kafka
+    networks:
+      - dev-network
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: dev-s3
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DEBUG=1
+      # DATA_DIR를 /var/lib/localstack로 바꾸면 /tmp 삭제 충돌을 피함
+      - DATA_DIR=/var/lib/localstack/data
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - dev-network
+
+volumes:
+  kafka_data:
+  localstack_data:
+
+networks:
+  dev-network:
+    driver: bridge

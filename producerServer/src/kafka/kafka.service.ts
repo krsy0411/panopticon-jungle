@@ -15,39 +15,48 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   private isConnected = false;
 
   constructor(private readonly configService: ConfigService) {
+    const client = this.configService.get<string>('MSK_CLIENT');
     // 환경변수에서 MSK 브로커 엔드포인트들을 가져와서 배열로 변환
     const brokers = this.configService.get<string>('MSK_BROKERS')?.split(',');
     // AWS 리전 정보 가져오기
     const region = this.configService.get<string>('AWS_REGION');
+    // 환경 구분 (development = 로컬 카프카, production = MSK)
+    const isProduction = process.env.NODE_ENV === 'production';
 
+    // 로컬 개발 환경: PLAINTEXT 연결
+    // 배포 환경: MSK IAM 인증 사용
     this.kafka = new Kafka({
-      clientId: 'panopticon-producer',
+      clientId: client,
       brokers,
-      ssl: true,
-      sasl: {
-        mechanism: 'oauthbearer',
-        oauthBearerProvider: async () => {
-          const { generateAuthToken } = await import(
-            'aws-msk-iam-sasl-signer-js'
-          );
+      ...(isProduction && {
+        ssl: true,
+        sasl: {
+          mechanism: 'oauthbearer',
+          oauthBearerProvider: async () => {
+            const { generateAuthToken } = await import(
+              'aws-msk-iam-sasl-signer-js'
+            );
 
-          const authTokenResponse = await generateAuthToken({
-            region: 'ap-northeast-2',
-          });
+            const authTokenResponse = await generateAuthToken({
+              region: region || 'ap-northeast-2',
+            });
 
-          return {
-            value: authTokenResponse.token,
-          };
+            return {
+              value: authTokenResponse.token,
+            };
+          },
         },
-      },
+      }),
     } as any);
 
     this.producer = this.kafka.producer({
-      allowAutoTopicCreation: false,
+      allowAutoTopicCreation: !isProduction, // 로컬에서는 자동 토픽 생성 허용
       transactionTimeout: 30000,
     });
 
-    this.logger.log(`Kafka configured for region: ${region}`);
+    this.logger.log(
+      `Kafka configured for ${isProduction ? 'production (MSK)' : 'development (local)'} in region: ${region}`,
+    );
   }
 
   async onModuleInit() {

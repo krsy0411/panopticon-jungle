@@ -17,9 +17,9 @@ export class AppController {
   }
 
   @Get('health')
-  healthCheck() {
+  async healthCheck() {
     const isKafkaConnected = this.kafkaService.isProducerConnected();
-    const isS3Connected = this.s3Service.checkConnection();
+    const isS3Connected = await this.s3Service.checkConnection();
     return {
       timestamp: new Date().toISOString(),
       service: {
