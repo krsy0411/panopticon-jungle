@@ -4,11 +4,13 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { KafkaModule } from './kafka/kafka.module';
 import { S3Module } from './s3/s3.module';
+import { OpenSearchModule } from './opensearch/opensearch.module';
 
 @Module({
   imports: [
-    KafkaModule,
+    // KafkaModule, // 임시 비활성화
     S3Module,
+    OpenSearchModule,
     // ConfigModule은 시스템환경변수를 높은 우선순위로 둔다.
     ConfigModule.forRoot({
       isGlobal: true,
