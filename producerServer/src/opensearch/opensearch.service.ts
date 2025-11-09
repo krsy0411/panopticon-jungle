@@ -10,34 +10,30 @@ export class OpenSearchService implements OnModuleInit {
   constructor(private configService: ConfigService) {}
 
   onModuleInit() {
+    // ConfigService에서 읽기
     const node = this.configService.get<string>('OPENSEARCH_NODE');
     const username = this.configService.get<string>('OPENSEARCH_USERNAME');
     const password = this.configService.get<string>('OPENSEARCH_PASSWORD');
 
-    // OpenSearch 클라이언트 초기화
     const clientConfig: any = {
-      node: node || 'http://localhost:9200',
+      node: node ? node : 'http://localhost:9200',
       ssl: {
-        rejectUnauthorized: false, // 개발 환경용 (프로덕션에서는 true로 설정)
+        rejectUnauthorized: false, // 개발환경에서는 false
       },
     };
 
-    // 명시적으로 auth 설정
+    // 인증추가
     if (username && password) {
       clientConfig.auth = {
         username,
         password,
       };
-      this.logger.log('✅ Auth configured with username/password');
+      this.logger.log('✅ Auth object also configured');
     } else {
       this.logger.error('❌ No auth configured - will use anonymous');
     }
 
     this.client = new Client(clientConfig);
-
-    this.logger.log(
-      `OpenSearch configured with node: ${node}, auth: ${!!username && !!password}`,
-    );
   }
 
   /**
