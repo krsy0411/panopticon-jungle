@@ -289,53 +289,83 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    await this.ensureIsmTemplate(config, policyName, ismHeaders);
+    await this.ensureIsmTemplate(config);
+    await this.attachIsmPolicy(config, policyName, ismHeaders);
   }
 
   private async ensureIsmTemplate(
     config: DataStreamConfig,
-    policyName: string,
-    headers: Record<string, string>,
   ): Promise<void> {
-    const templatePath = `/_index_template/${config.templateName}`;
-    const payload = {
-      index_patterns: [`${config.dataStream}*`, config.dataStream],
-      priority: 500,
-      _meta: {
-        managed_by: "ism",
-      },
-      data_stream: {},
-      template: {
-        settings: {},
-        mappings: config.mappings,
-      },
-      ism_template: {
-        index_patterns: [`${config.dataStream}*`, config.dataStream],
-        priority: 500,
-        last_updated_time: Date.now(),
-        policy_id: policyName,
-      },
-    };
+    const patterns = [
+      config.dataStream,
+      `${config.dataStream}-*`,
+      `.ds-${config.dataStream}-*`,
+    ];
 
     try {
-      await this.client.transport.request(
-        {
-          method: "PUT",
-          path: templatePath,
-          body: payload,
+      await this.client.indices.putIndexTemplate({
+        name: config.templateName,
+        index_patterns: patterns,
+        priority: 500,
+        data_stream: {},
+        template: {
+          mappings: config.mappings,
         },
-        { headers },
-      );
+      });
       this.logger.log(
         `OpenSearch ISM index template ensured: ${config.templateName}`,
       );
     } catch (error) {
       if (
         error instanceof errors.ResponseError &&
-        (error.statusCode === 409 || error.statusCode === 400)
+        error.statusCode === 409
       ) {
         this.logger.warn(
           `OpenSearch ISM index template already exists: ${config.templateName}`,
+        );
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async attachIsmPolicy(
+    config: DataStreamConfig,
+    policyName: string,
+    headers: Record<string, string>,
+  ): Promise<void> {
+    const pattern = `.ds-${config.dataStream}-*`;
+
+    try {
+      await this.client.transport.request(
+        {
+          method: "POST",
+          path: `/_plugins/_ism/add/${encodeURIComponent(pattern)}`,
+          body: {
+            policy_id: policyName,
+          },
+        },
+        { headers },
+      );
+      this.logger.log(
+        `OpenSearch ISM policy ${policyName} attached to ${pattern}`,
+      );
+    } catch (error) {
+      if (
+        error instanceof errors.ResponseError &&
+        error.statusCode === 409
+      ) {
+        this.logger.warn(
+          `OpenSearch ISM policy already attached to ${pattern}`,
+        );
+        return;
+      }
+      if (
+        error instanceof errors.ResponseError &&
+        error.statusCode === 404
+      ) {
+        this.logger.warn(
+          `OpenSearch ISM add endpoint unavailable for ${pattern}, skipping.`,
         );
         return;
       }
