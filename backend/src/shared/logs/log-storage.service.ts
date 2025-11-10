@@ -31,8 +31,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
     const node = process.env.ELASTICSEARCH_NODE ?? "http://localhost:9200";
     const username = process.env.OPENSEARCH_USERNAME;
     const password = process.env.OPENSEARCH_PASSWORD;
-    const auth =
-      username && password ? { username, password } : undefined;
+    const auth = username && password ? { username, password } : undefined;
 
     this.client = new Client({ node, auth });
 
