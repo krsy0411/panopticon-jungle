@@ -25,7 +25,7 @@ async function bootstrap() {
     .setTitle("Panopticon API")
     .setDescription("SRE 모니터링 플랫폼 - 실시간 로그 및 메트릭 수집·분석 API")
     .setVersion("1.0")
-    .addTag("metrics", "메트릭 관련 API (API 메트릭, 시스템 메트릭.)")
+    .addTag("metrics", "메트릭 관련 API (API 메트릭, 시스템 메트릭)")
     .addTag("logs", "로그 관련 API")
     .build();
 
