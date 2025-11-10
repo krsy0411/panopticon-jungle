@@ -210,41 +210,51 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
   private async ensureIsmPolicy(config: DataStreamConfig): Promise<void> {
     const policyName =
       process.env.OPENSEARCH_ISM_POLICY ?? `${config.dataStream}-ism-policy`;
+    const ismHeaders = {
+      "content-type": "application/json",
+      accept: "application/json",
+    };
 
     try {
-      await this.client.transport.request({
-        method: "GET",
-        path: `/_plugins/_ism/policies/${policyName}`,
-      });
+      await this.client.transport.request(
+        {
+          method: "GET",
+          path: `/_plugins/_ism/policies/${policyName}`,
+        },
+        { headers: ismHeaders },
+      );
     } catch (error) {
       if (
         error instanceof errors.ResponseError &&
         error.statusCode === 404
       ) {
-        await this.client.transport.request({
-          method: "PUT",
-          path: `/_plugins/_ism/policies/${policyName}`,
-          body: {
-            policy: {
-              description: `${config.dataStream} retention`,
-              default_state: "hot",
-              states: [
-                {
-                  name: "hot",
-                  actions: [
-                    {
-                      rollover: {
-                        min_primary_shard_size: config.rolloverSize,
-                        min_index_age: config.rolloverAge,
+        await this.client.transport.request(
+          {
+            method: "PUT",
+            path: `/_plugins/_ism/policies/${policyName}`,
+            body: {
+              policy: {
+                description: `${config.dataStream} retention`,
+                default_state: "hot",
+                states: [
+                  {
+                    name: "hot",
+                    actions: [
+                      {
+                        rollover: {
+                          min_primary_shard_size: config.rolloverSize,
+                          min_index_age: config.rolloverAge,
+                        },
                       },
-                    },
-                  ],
-                  transitions: [],
-                },
-              ],
+                    ],
+                    transitions: [],
+                  },
+                ],
+              },
             },
           },
-        });
+          { headers: ismHeaders },
+        );
         this.logger.log(
           `OpenSearch ISM policy ensured: ${policyName}`,
         );
