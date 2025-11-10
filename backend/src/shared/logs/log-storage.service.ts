@@ -302,35 +302,32 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.client.transport.request(
         {
-          method: "GET",
+          method: "PUT",
           path: templatePath,
+          body: {
+            index_patterns: [config.dataStream],
+            priority: 500,
+            last_updated_time: Date.now(),
+            template: {
+              data_stream: {},
+              settings: {},
+              mappings: config.mappings,
+            },
+            policy_id: policyName,
+          },
         },
         { headers },
+      );
+      this.logger.log(
+        `OpenSearch ISM template ensured: ${config.templateName}`,
       );
     } catch (error) {
       if (
         error instanceof errors.ResponseError &&
-        error.statusCode === 404
+        error.statusCode === 409
       ) {
-        await this.client.transport.request(
-          {
-            method: "PUT",
-            path: templatePath,
-            body: {
-              index_patterns: [config.dataStream],
-              priority: 500,
-              template: {
-                data_stream: {},
-                settings: {},
-                mappings: config.mappings,
-              },
-              policy_id: policyName,
-            },
-          },
-          { headers },
-        );
-        this.logger.log(
-          `OpenSearch ISM template ensured: ${config.templateName}`,
+        this.logger.warn(
+          `OpenSearch ISM template conflict ignored: ${config.templateName}`,
         );
       } else {
         throw error;
