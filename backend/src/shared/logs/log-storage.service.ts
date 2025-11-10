@@ -250,10 +250,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         { headers: ismHeaders },
       );
     } catch (error) {
-      if (
-        error instanceof errors.ResponseError &&
-        error.statusCode === 404
-      ) {
+      if (error instanceof errors.ResponseError && error.statusCode === 404) {
         await this.client.transport.request(
           {
             method: "PUT",
@@ -281,9 +278,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
           },
           { headers: ismHeaders },
         );
-        this.logger.log(
-          `OpenSearch ISM policy ensured: ${policyName}`,
-        );
+        this.logger.log(`OpenSearch ISM policy ensured: ${policyName}`);
       } else {
         throw error;
       }
@@ -293,9 +288,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
     await this.attachIsmPolicy(config, policyName, ismHeaders);
   }
 
-  private async ensureIsmTemplate(
-    config: DataStreamConfig,
-  ): Promise<void> {
+  private async ensureIsmTemplate(config: DataStreamConfig): Promise<void> {
     const patterns = [
       config.dataStream,
       `${config.dataStream}-*`,
@@ -316,10 +309,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         `OpenSearch ISM index template ensured: ${config.templateName}`,
       );
     } catch (error) {
-      if (
-        error instanceof errors.ResponseError &&
-        error.statusCode === 409
-      ) {
+      if (error instanceof errors.ResponseError && error.statusCode === 409) {
         this.logger.warn(
           `OpenSearch ISM index template already exists: ${config.templateName}`,
         );
@@ -351,19 +341,13 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         `OpenSearch ISM policy ${policyName} attached to ${pattern}`,
       );
     } catch (error) {
-      if (
-        error instanceof errors.ResponseError &&
-        error.statusCode === 409
-      ) {
+      if (error instanceof errors.ResponseError && error.statusCode === 409) {
         this.logger.warn(
           `OpenSearch ISM policy already attached to ${pattern}`,
         );
         return;
       }
-      if (
-        error instanceof errors.ResponseError &&
-        error.statusCode === 404
-      ) {
+      if (error instanceof errors.ResponseError && error.statusCode === 404) {
         this.logger.warn(
           `OpenSearch ISM add endpoint unavailable for ${pattern}, skipping.`,
         );

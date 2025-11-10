@@ -55,7 +55,7 @@ interface KafkaMicroserviceParams {
 
 type KafkaSecurityOverrides = Pick<KafkaConfig, "ssl" | "sasl">;
 
-function buildKafkaSecurityConfig(brokers: string[]): KafkaSecurityOverrides {
+function buildKafkaSecurityConfig(): KafkaSecurityOverrides {
   const sslEnabled = process.env.KAFKA_SSL === "true";
   const sslRejectUnauthorized =
     process.env.KAFKA_SSL_REJECT_UNAUTHORIZED !== "false";
@@ -102,10 +102,7 @@ function buildKafkaSecurityConfig(brokers: string[]): KafkaSecurityOverrides {
     return {
       ssl,
       sasl: {
-        mechanism: mechanism as Exclude<
-          KafkaConfig["sasl"],
-          undefined
-        >["mechanism"],
+        mechanism: mechanism,
         username,
         password,
       } as KafkaConfig["sasl"],
@@ -115,17 +112,15 @@ function buildKafkaSecurityConfig(brokers: string[]): KafkaSecurityOverrides {
   return { ssl };
 }
 
-export function getKafkaSecurityOverrides(
-  brokers: string[] = [],
-): KafkaSecurityOverrides {
-  return buildKafkaSecurityConfig(brokers);
+export function getKafkaSecurityOverrides(): KafkaSecurityOverrides {
+  return buildKafkaSecurityConfig();
 }
 
 export function createKafkaMicroserviceOptions(
   params: KafkaMicroserviceParams,
 ): MicroserviceOptions {
   const brokers = params.brokers ?? parseKafkaBrokers();
-  const { ssl, sasl } = buildKafkaSecurityConfig(brokers);
+  const { ssl, sasl } = buildKafkaSecurityConfig();
 
   if (brokers.length === 0) {
     throw new Error(
