@@ -1,4 +1,4 @@
-import { ValidationPipe } from "@nestjs/common";
+import { RequestMethod, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { QueryApiModule } from "./query-api.module";
@@ -15,6 +15,10 @@ async function bootstrap() {
       forbidUnknownValues: false,
     }),
   );
+
+  app.setGlobalPrefix("query", {
+    exclude: [{ path: "health", method: RequestMethod.GET }],
+  });
 
   // Swagger 설정
   const config = new DocumentBuilder()

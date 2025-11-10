@@ -4,7 +4,8 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
-import { Client, errors } from "@elastic/elasticsearch";
+import { Client, ClientOptions, errors } from "@elastic/elasticsearch";
+import { Transport, TransportOptions } from "@elastic/transport";
 
 const DEFAULT_ROLLOVER_SIZE = "10gb";
 const DEFAULT_ROLLOVER_AGE = "1d";
@@ -26,10 +27,48 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LogStorageService.name);
   private readonly client: Client;
   private readonly configs: Record<LogStreamKey, DataStreamConfig>;
+  private readonly useIsm: boolean;
+
+  private static readonly OpenSearchTransport = class extends Transport {
+    constructor(opts: TransportOptions) {
+      const patchedOpts: TransportOptions & {
+        productCheck?: string;
+      } = {
+        ...opts,
+        vendoredHeaders: {
+          jsonContentType: "application/json",
+          ndjsonContentType: "application/x-ndjson",
+          accept: "application/json,text/plain",
+        },
+      };
+      delete patchedOpts.productCheck;
+      super(patchedOpts);
+    }
+  };
 
   constructor() {
+    this.useIsm =
+      typeof process.env.USE_ISM === "string" &&
+      process.env.USE_ISM.toLowerCase() === "true";
+
     const node = process.env.ELASTICSEARCH_NODE ?? "http://localhost:9200";
-    this.client = new Client({ node });
+    const username = process.env.OPENSEARCH_USERNAME;
+    const password = process.env.OPENSEARCH_PASSWORD;
+    const auth = username && password ? { username, password } : undefined;
+
+    const tls =
+      process.env.OPENSEARCH_REJECT_UNAUTHORIZED === "false"
+        ? { rejectUnauthorized: false }
+        : undefined;
+
+    const clientOptions: ClientOptions = { node, auth, tls };
+
+    this.client = this.useIsm
+      ? new Client({
+          ...clientOptions,
+          Transport: LogStorageService.OpenSearchTransport,
+        })
+      : new Client(clientOptions);
 
     const appStream = process.env.ELASTICSEARCH_APP_DATA_STREAM ?? "logs-app";
     const httpStream =
@@ -105,9 +144,14 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
 
   async onModuleInit(): Promise<void> {
     for (const config of Object.values(this.configs)) {
-      await this.ensureIlmPolicy(config);
-      await this.ensureTemplate(config);
-      await this.ensureDataStream(config);
+      if (this.useIsm) {
+        await this.ensureIsmPolicy(config);
+        await this.ensureDataStream(config);
+      } else {
+        await this.ensureIlmPolicy(config);
+        await this.ensureTemplate(config);
+        await this.ensureDataStream(config);
+      }
     }
   }
 
@@ -186,6 +230,130 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
       } else {
         throw error;
       }
+    }
+  }
+
+  private async ensureIsmPolicy(config: DataStreamConfig): Promise<void> {
+    const policyName =
+      process.env.OPENSEARCH_ISM_POLICY ?? `${config.dataStream}-ism-policy`;
+    const ismHeaders = {
+      "content-type": "application/json",
+      accept: "application/json",
+    };
+
+    try {
+      await this.client.transport.request(
+        {
+          method: "GET",
+          path: `/_plugins/_ism/policies/${policyName}`,
+        },
+        { headers: ismHeaders },
+      );
+    } catch (error) {
+      if (error instanceof errors.ResponseError && error.statusCode === 404) {
+        await this.client.transport.request(
+          {
+            method: "PUT",
+            path: `/_plugins/_ism/policies/${policyName}`,
+            body: {
+              policy: {
+                description: `${config.dataStream} retention`,
+                default_state: "hot",
+                states: [
+                  {
+                    name: "hot",
+                    actions: [
+                      {
+                        rollover: {
+                          min_primary_shard_size: config.rolloverSize,
+                          min_index_age: config.rolloverAge,
+                        },
+                      },
+                    ],
+                    transitions: [],
+                  },
+                ],
+              },
+            },
+          },
+          { headers: ismHeaders },
+        );
+        this.logger.log(`OpenSearch ISM policy ensured: ${policyName}`);
+      } else {
+        throw error;
+      }
+    }
+
+    await this.ensureIsmTemplate(config);
+    await this.attachIsmPolicy(config, policyName, ismHeaders);
+  }
+
+  private async ensureIsmTemplate(config: DataStreamConfig): Promise<void> {
+    const patterns = [
+      config.dataStream,
+      `${config.dataStream}-*`,
+      `.ds-${config.dataStream}-*`,
+    ];
+
+    try {
+      await this.client.indices.putIndexTemplate({
+        name: config.templateName,
+        index_patterns: patterns,
+        priority: 500,
+        data_stream: {},
+        template: {
+          mappings: config.mappings,
+        },
+      });
+      this.logger.log(
+        `OpenSearch ISM index template ensured: ${config.templateName}`,
+      );
+    } catch (error) {
+      if (error instanceof errors.ResponseError && error.statusCode === 409) {
+        this.logger.warn(
+          `OpenSearch ISM index template already exists: ${config.templateName}`,
+        );
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private async attachIsmPolicy(
+    config: DataStreamConfig,
+    policyName: string,
+    headers: Record<string, string>,
+  ): Promise<void> {
+    const pattern = `.ds-${config.dataStream}-*`;
+
+    try {
+      await this.client.transport.request(
+        {
+          method: "POST",
+          path: `/_plugins/_ism/add/${encodeURIComponent(pattern)}`,
+          body: {
+            policy_id: policyName,
+          },
+        },
+        { headers },
+      );
+      this.logger.log(
+        `OpenSearch ISM policy ${policyName} attached to ${pattern}`,
+      );
+    } catch (error) {
+      if (error instanceof errors.ResponseError && error.statusCode === 409) {
+        this.logger.warn(
+          `OpenSearch ISM policy already attached to ${pattern}`,
+        );
+        return;
+      }
+      if (error instanceof errors.ResponseError && error.statusCode === 404) {
+        this.logger.warn(
+          `OpenSearch ISM add endpoint unavailable for ${pattern}, skipping.`,
+        );
+        return;
+      }
+      throw error;
     }
   }
 }

@@ -13,6 +13,17 @@ export class TimescaleSchemaService implements OnModuleInit {
   constructor(private readonly connectionService: TimescaleConnectionService) {}
 
   async onModuleInit() {
+    // Temporary guard for deployments that omit TimescaleDB. Remove when DB is ready.
+    if (
+      typeof process.env.SKIP_TIMESCALE_INIT === "string" &&
+      process.env.SKIP_TIMESCALE_INIT.toLowerCase() === "true"
+    ) {
+      this.logger.warn(
+        "Skipping Timescale schema initialization (SKIP_TIMESCALE_INIT=true)",
+      );
+      return;
+    }
+
     await this.initializeSchema();
   }
 
