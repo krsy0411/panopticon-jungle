@@ -6,18 +6,19 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { KafkaService } from '../kafka/kafka.service';
+import { KafkaService } from './kafka.service';
 import { LogDto } from '../dto/logs.dto';
 import { MetricsHttpDto } from '../dto/metrics-http.dto';
 import { MetricsSystemDto } from '../dto/metrics-system.dto';
 import { SpanDto } from '../dto/spans.dto';
 
-@Controller('data')
-export class DataController {
-  private readonly logger = new Logger(DataController.name);
+@Controller()
+export class KafkaController {
+  private readonly logger = new Logger(KafkaController.name);
 
   constructor(private readonly kafkaService: KafkaService) {}
 
+  // 로그 수집 API
   @Post('logs')
   @HttpCode(HttpStatus.ACCEPTED)
   async ingestLogs(@Body() data: LogDto | LogDto[]) {
