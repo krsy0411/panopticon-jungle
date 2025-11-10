@@ -1,4 +1,5 @@
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
+import type { KafkaConfig } from "kafkajs";
 
 const DEFAULT_BROKER = "localhost:9092";
 
@@ -52,10 +53,43 @@ interface KafkaMicroserviceParams {
   brokers?: string[];
 }
 
+function buildKafkaSecurityConfig(): Pick<KafkaConfig, "ssl" | "sasl"> {
+  const sslEnabled = process.env.KAFKA_SSL === "true";
+  const sslRejectUnauthorized =
+    process.env.KAFKA_SSL_REJECT_UNAUTHORIZED !== "false";
+
+  const ssl = sslEnabled
+    ? { rejectUnauthorized: sslRejectUnauthorized }
+    : undefined;
+
+  const mechanism = process.env.KAFKA_SASL_MECHANISM;
+  const username = process.env.KAFKA_SASL_USERNAME;
+  const password = process.env.KAFKA_SASL_PASSWORD;
+
+  const sasl =
+    mechanism && username && password
+      ? ({
+          mechanism,
+          username,
+          password,
+        } as KafkaConfig["sasl"])
+      : undefined;
+
+  return { ssl, sasl };
+}
+
+export function getKafkaSecurityOverrides(): Pick<
+  KafkaConfig,
+  "ssl" | "sasl"
+> {
+  return buildKafkaSecurityConfig();
+}
+
 export function createKafkaMicroserviceOptions(
   params: KafkaMicroserviceParams,
 ): MicroserviceOptions {
   const brokers = params.brokers ?? parseKafkaBrokers();
+  const { ssl, sasl } = buildKafkaSecurityConfig();
 
   if (brokers.length === 0) {
     throw new Error(
@@ -69,6 +103,8 @@ export function createKafkaMicroserviceOptions(
       client: {
         clientId: params.clientId,
         brokers,
+        ssl,
+        sasl,
       },
       consumer: {
         groupId: params.groupId,

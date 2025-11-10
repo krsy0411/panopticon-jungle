@@ -1,34 +1,19 @@
-import { existsSync } from "fs";
 import { Kafka } from "kafkajs";
 import { loadEnv } from "../../../shared/config/load-env";
+import {
+  getKafkaSecurityOverrides,
+  parseKafkaBrokers,
+} from "../../../shared/common/kafka/kafka.config";
 
 loadEnv();
 
-const runningInsideDocker = existsSync("/.dockerenv");
-
-function resolveBrokers(): string[] {
-  const raw =
-    process.env.KAFKA_BROKERS_LOCAL ??
-    process.env.KAFKA_BROKERS ??
-    "localhost:9092";
-  return raw
-    .split(",")
-    .map((broker) => broker.trim())
-    .filter(Boolean)
-    .map((broker) => {
-      if (!runningInsideDocker && broker.startsWith("kafka:")) {
-        return broker.replace(/^kafka(?=:)/, "localhost");
-      }
-      return broker;
-    });
-}
-
-const brokers = resolveBrokers();
+const brokers = parseKafkaBrokers();
 console.log(`[send-app-log] using brokers: ${brokers.join(", ")}`);
 
 const kafka = new Kafka({
   brokers,
   clientId: "cli-producer",
+  ...getKafkaSecurityOverrides(),
 });
 
 const producer = kafka.producer();
