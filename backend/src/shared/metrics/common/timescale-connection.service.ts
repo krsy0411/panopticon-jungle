@@ -15,9 +15,24 @@ export class TimescaleConnectionService
   implements OnModuleInit, OnModuleDestroy
 {
   private readonly logger = new Logger(TimescaleConnectionService.name);
-  private pool: Pool;
+  private pool: Pool | null = null;
+
+  // Temporary guard so we can deploy without TimescaleDB. Remove when DB is provisioned.
+  private shouldSkip(): boolean {
+    return (
+      typeof process.env.SKIP_TIMESCALE_INIT === "string" &&
+      process.env.SKIP_TIMESCALE_INIT.toLowerCase() === "true"
+    );
+  }
 
   async onModuleInit() {
+    if (this.shouldSkip()) {
+      this.logger.warn(
+        "Skipping TimescaleDB initialization (SKIP_TIMESCALE_INIT=true)",
+      );
+      return;
+    }
+
     // PostgreSQL/TimescaleDB 연결 설정
     this.pool = new Pool({
       host: process.env.TIMESCALE_HOST || "localhost",
@@ -60,6 +75,9 @@ export class TimescaleConnectionService
    */
   getPool(): Pool {
     if (!this.pool) {
+      if (this.shouldSkip()) {
+        throw new Error("TimescaleDB pool skipped (SKIP_TIMESCALE_INIT=true)");
+      }
       throw new Error("TimescaleDB pool not initialized");
     }
     return this.pool;
@@ -69,7 +87,7 @@ export class TimescaleConnectionService
    * 클라이언트 연결 획득
    */
   async getClient(): Promise<PoolClient> {
-    return this.pool.connect();
+    return this.getPool().connect();
   }
 
   /**
@@ -79,7 +97,7 @@ export class TimescaleConnectionService
     queryText: string,
     values?: unknown[],
   ): Promise<T[]> {
-    const result = await this.pool.query<T>(queryText, values);
+    const result = await this.getPool().query<T>(queryText, values);
     return result.rows;
   }
 
