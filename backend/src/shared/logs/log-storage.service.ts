@@ -113,11 +113,11 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit(): Promise<void> {
-    // for (const config of Object.values(this.configs)) {
-    //   await this.ensureIlmPolicy(config);
-    //   await this.ensureTemplate(config);
-    //   await this.ensureDataStream(config);
-    // }
+    for (const config of Object.values(this.configs)) {
+      await this.ensureIlmPolicy(config);
+      await this.ensureTemplate(config);
+      await this.ensureDataStream(config);
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
