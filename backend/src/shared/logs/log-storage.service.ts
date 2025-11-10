@@ -299,19 +299,18 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
   ): Promise<void> {
     const templatePath = `/_index_template/${config.templateName}`;
     const payload = {
-      index_patterns: [config.dataStream],
+      index_patterns: [`${config.dataStream}*`, config.dataStream],
       priority: 500,
-      allow_auto_create: true,
       _meta: {
         managed_by: "ism",
       },
+      data_stream: {},
       template: {
         settings: {},
         mappings: config.mappings,
-        data_stream: {},
       },
       ism_template: {
-        index_patterns: [config.dataStream],
+        index_patterns: [`${config.dataStream}*`, config.dataStream],
         priority: 500,
         last_updated_time: Date.now(),
         policy_id: policyName,
