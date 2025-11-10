@@ -74,10 +74,6 @@ function buildKafkaSecurityConfig(brokers: string[]): KafkaSecurityOverrides {
       process.env.KAFKA_AWS_REGION ??
       process.env.AWS_REGION ??
       "ap-northeast-2";
-    const hostOverride = process.env.KAFKA_IAM_HOST;
-    const [firstBrokerHost = "localhost", portString = "9092"] =
-      (hostOverride ?? brokers[0] ?? DEFAULT_BROKER).split(":");
-    const brokerPort = Number(portString) || 9092;
 
     return {
       ssl,
@@ -88,11 +84,7 @@ function buildKafkaSecurityConfig(brokers: string[]): KafkaSecurityOverrides {
             const { generateAuthToken } = await import(
               "aws-msk-iam-sasl-signer-js"
             );
-            const token = await generateAuthToken({
-              region,
-              hostname: firstBrokerHost,
-              port: brokerPort,
-            });
+            const token = await generateAuthToken({ region });
             return { value: token.token };
           } catch (error) {
             throw new Error(
