@@ -5,7 +5,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Kafka, Producer, ProducerRecord, CompressionTypes } from 'kafkajs';
+import { Kafka, Producer, ProducerRecord } from 'kafkajs';
 
 // 토픽별 설정
 interface TopicConfig {

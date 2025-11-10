@@ -12,6 +12,7 @@
     "start:dev": "NODE_ENV=development nest start --watch",
     "start:debug": "NODE_ENV=development nest start --debug --watch",
     "start:prod": "NODE_ENV=production node dist/main",
+    "create-topics": "node scripts/create-topics.js",
     "docker:dev:up": "docker-compose -f docker-compose.dev.yml up -d",
     "docker:dev:down": "docker-compose -f docker-compose.dev.yml down",
     "docker:dev:logs": "docker-compose -f docker-compose.dev.yml logs -f",
