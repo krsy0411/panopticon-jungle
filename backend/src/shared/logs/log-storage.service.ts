@@ -4,7 +4,8 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from "@nestjs/common";
-import { Client, errors } from "@elastic/elasticsearch";
+import { Client, ClientOptions, errors } from "@elastic/elasticsearch";
+import { Transport, TransportOptions } from "@elastic/transport";
 
 const DEFAULT_ROLLOVER_SIZE = "10gb";
 const DEFAULT_ROLLOVER_AGE = "1d";
@@ -26,8 +27,30 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LogStorageService.name);
   private readonly client: Client;
   private readonly configs: Record<LogStreamKey, DataStreamConfig>;
+  private readonly useIsm: boolean;
+
+  private static readonly OpenSearchTransport = class extends Transport {
+    constructor(opts: TransportOptions) {
+      const patchedOpts: TransportOptions & {
+        productCheck?: string;
+      } = {
+        ...opts,
+        vendoredHeaders: {
+          jsonContentType: "application/json",
+          ndjsonContentType: "application/x-ndjson",
+          accept: "application/json,text/plain",
+        },
+      };
+      delete patchedOpts.productCheck;
+      super(patchedOpts);
+    }
+  };
 
   constructor() {
+    this.useIsm =
+      typeof process.env.USE_ISM === "string" &&
+      process.env.USE_ISM.toLowerCase() === "true";
+
     const node = process.env.ELASTICSEARCH_NODE ?? "http://localhost:9200";
     const username = process.env.OPENSEARCH_USERNAME;
     const password = process.env.OPENSEARCH_PASSWORD;
@@ -38,7 +61,14 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         ? { rejectUnauthorized: false }
         : undefined;
 
-    this.client = new Client({ node, auth, tls });
+    const clientOptions: ClientOptions = { node, auth, tls };
+
+    this.client = this.useIsm
+      ? new Client({
+          ...clientOptions,
+          Transport: LogStorageService.OpenSearchTransport,
+        })
+      : new Client(clientOptions);
 
     const appStream = process.env.ELASTICSEARCH_APP_DATA_STREAM ?? "logs-app";
     const httpStream =
@@ -113,12 +143,8 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit(): Promise<void> {
-    const useIsm =
-      typeof process.env.USE_ISM === "string" &&
-      process.env.USE_ISM.toLowerCase() === "true";
-
     for (const config of Object.values(this.configs)) {
-      if (useIsm) {
+      if (this.useIsm) {
         await this.ensureIsmPolicy(config);
         await this.ensureDataStream(config);
       } else {
