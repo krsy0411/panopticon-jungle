@@ -297,84 +297,50 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
     policyName: string,
     headers: Record<string, string>,
   ): Promise<void> {
+    const templatePath = `/_index_template/${config.templateName}`;
     const payload = {
       index_patterns: [config.dataStream],
       priority: 500,
-      last_updated_time: Date.now(),
+      allow_auto_create: true,
+      _meta: {
+        managed_by: "ism",
+      },
       template: {
-        data_stream: {},
         settings: {},
         mappings: config.mappings,
+        data_stream: {},
       },
-      policy_id: policyName,
+      ism_template: {
+        index_patterns: [config.dataStream],
+        priority: 500,
+        last_updated_time: Date.now(),
+        policy_id: policyName,
+      },
     };
 
-    const endpoints = [
-      `/_plugins/_ism/templates/${config.templateName}`,
-      `/_opendistro/_ism/templates/${config.templateName}`,
-    ];
-
-    let lastError: unknown;
-
-    for (const path of endpoints) {
-      try {
-        await this.client.transport.request(
-          {
-            method: "POST",
-            path,
-            body: payload,
-          },
-          { headers },
-        );
-        this.logger.log(
-          `OpenSearch ISM template ensured via ${path}: ${config.templateName}`,
+    try {
+      await this.client.transport.request(
+        {
+          method: "PUT",
+          path: templatePath,
+          body: payload,
+        },
+        { headers },
+      );
+      this.logger.log(
+        `OpenSearch ISM index template ensured: ${config.templateName}`,
+      );
+    } catch (error) {
+      if (
+        error instanceof errors.ResponseError &&
+        (error.statusCode === 409 || error.statusCode === 400)
+      ) {
+        this.logger.warn(
+          `OpenSearch ISM index template already exists: ${config.templateName}`,
         );
         return;
-      } catch (error) {
-        lastError = error;
-        if (
-          error instanceof errors.ResponseError &&
-          error.statusCode === 409
-        ) {
-          this.logger.warn(
-            `OpenSearch ISM template already exists on ${path}: ${config.templateName}`,
-          );
-          return;
-        }
-
-        if (
-          error instanceof errors.ResponseError &&
-          error.statusCode === 404 &&
-          this.isNoHandlerError(error)
-        ) {
-          continue;
-        }
-
-        throw error;
       }
+      throw error;
     }
-
-    throw lastError instanceof Error
-      ? lastError
-      : new Error("No ISM template endpoint available");
-  }
-
-  private isNoHandlerError(error: errors.ResponseError): boolean {
-    const body = error.meta?.body;
-    if (!body) {
-      return false;
-    }
-    if (typeof body === "string") {
-      return body.includes("no handler found");
-    }
-    if (typeof body === "object") {
-      const maybeError =
-        (body as { error?: unknown }).error ??
-        (body as { Message?: unknown }).Message;
-      if (typeof maybeError === "string") {
-        return maybeError.includes("no handler found");
-      }
-    }
-    return false;
   }
 }
