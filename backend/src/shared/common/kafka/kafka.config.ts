@@ -1,4 +1,5 @@
 import { MicroserviceOptions, Transport } from "@nestjs/microservices";
+import type { KafkaConfig } from "kafkajs";
 
 const DEFAULT_BROKER = "localhost:9092";
 
@@ -52,10 +53,74 @@ interface KafkaMicroserviceParams {
   brokers?: string[];
 }
 
+type KafkaSecurityOverrides = Pick<KafkaConfig, "ssl" | "sasl">;
+
+function buildKafkaSecurityConfig(): KafkaSecurityOverrides {
+  const sslEnabled = process.env.KAFKA_SSL === "true";
+  const sslRejectUnauthorized =
+    process.env.KAFKA_SSL_REJECT_UNAUTHORIZED !== "false";
+
+  const ssl = sslEnabled
+    ? { rejectUnauthorized: sslRejectUnauthorized }
+    : undefined;
+
+  const mechanism = process.env.KAFKA_SASL_MECHANISM;
+  if (!mechanism) {
+    return { ssl };
+  }
+
+  if (mechanism === "oauthbearer") {
+    const region =
+      process.env.KAFKA_AWS_REGION ??
+      process.env.AWS_REGION ??
+      "ap-northeast-2";
+
+    return {
+      ssl,
+      sasl: {
+        mechanism: "oauthbearer",
+        oauthBearerProvider: async () => {
+          try {
+            const { generateAuthToken } = await import(
+              "aws-msk-iam-sasl-signer-js"
+            );
+            const token = await generateAuthToken({ region });
+            return { value: token.token };
+          } catch (error) {
+            throw new Error(
+              `Failed to generate AWS MSK IAM auth token: ${error}`,
+            );
+          }
+        },
+      },
+    };
+  }
+
+  const username = process.env.KAFKA_SASL_USERNAME;
+  const password = process.env.KAFKA_SASL_PASSWORD;
+  if (username && password) {
+    return {
+      ssl,
+      sasl: {
+        mechanism: mechanism,
+        username,
+        password,
+      } as KafkaConfig["sasl"],
+    };
+  }
+
+  return { ssl };
+}
+
+export function getKafkaSecurityOverrides(): KafkaSecurityOverrides {
+  return buildKafkaSecurityConfig();
+}
+
 export function createKafkaMicroserviceOptions(
   params: KafkaMicroserviceParams,
 ): MicroserviceOptions {
   const brokers = params.brokers ?? parseKafkaBrokers();
+  const { ssl, sasl } = buildKafkaSecurityConfig();
 
   if (brokers.length === 0) {
     throw new Error(
@@ -69,6 +134,8 @@ export function createKafkaMicroserviceOptions(
       client: {
         clientId: params.clientId,
         brokers,
+        ssl,
+        sasl,
       },
       consumer: {
         groupId: params.groupId,
