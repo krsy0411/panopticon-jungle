@@ -16,7 +16,7 @@ async function bootstrap() {
     }),
   );
 
-  app.setGlobalPrefix("producer", {
+  app.setGlobalPrefix("query", {
     exclude: [{ path: "health", method: RequestMethod.GET }],
   });
 

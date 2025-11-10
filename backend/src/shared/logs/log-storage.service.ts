@@ -113,10 +113,19 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit(): Promise<void> {
+    const useIsm =
+      typeof process.env.USE_ISM === "string" &&
+      process.env.USE_ISM.toLowerCase() === "true";
+
     for (const config of Object.values(this.configs)) {
-      await this.ensureIlmPolicy(config);
-      await this.ensureTemplate(config);
-      await this.ensureDataStream(config);
+      if (useIsm) {
+        await this.ensureIsmPolicy(config);
+        await this.ensureDataStream(config);
+      } else {
+        await this.ensureIlmPolicy(config);
+        await this.ensureTemplate(config);
+        await this.ensureDataStream(config);
+      }
     }
   }
 
@@ -191,6 +200,82 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         });
         this.logger.log(
           `Elasticsearch data stream ensured: ${config.dataStream}`,
+        );
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  private async ensureIsmPolicy(config: DataStreamConfig): Promise<void> {
+    const policyName =
+      process.env.OPENSEARCH_ISM_POLICY ?? `${config.dataStream}-ism-policy`;
+
+    try {
+      await this.client.transport.request({
+        method: "GET",
+        path: `/_plugins/_ism/policies/${policyName}`,
+      });
+    } catch (error) {
+      if (
+        error instanceof errors.ResponseError &&
+        error.statusCode === 404
+      ) {
+        await this.client.transport.request({
+          method: "PUT",
+          path: `/_plugins/_ism/policies/${policyName}`,
+          body: {
+            policy: {
+              description: `${config.dataStream} retention`,
+              default_state: "hot",
+              states: [
+                {
+                  name: "hot",
+                  actions: [
+                    {
+                      rollover: {
+                        min_primary_shard_size: config.rolloverSize,
+                        min_index_age: config.rolloverAge,
+                      },
+                    },
+                  ],
+                  transitions: [],
+                },
+              ],
+            },
+          },
+        });
+        this.logger.log(
+          `OpenSearch ISM policy ensured: ${policyName}`,
+        );
+      } else {
+        throw error;
+      }
+    }
+
+    try {
+      await this.client.indices.getIndexTemplate({
+        name: config.templateName,
+      });
+    } catch (error) {
+      if (
+        error instanceof errors.ResponseError &&
+        error.statusCode === 404
+      ) {
+        await this.client.indices.putIndexTemplate({
+          name: config.templateName,
+          index_patterns: [config.dataStream],
+          data_stream: {},
+          template: {
+            settings: {
+              "index.opendistro.index_state_management.policy_id": policyName,
+            },
+            mappings: config.mappings,
+          },
+          priority: 500,
+        });
+        this.logger.log(
+          `OpenSearch ISM template ensured: ${config.templateName}`,
         );
       } else {
         throw error;
