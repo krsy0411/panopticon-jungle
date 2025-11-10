@@ -289,27 +289,46 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    await this.ensureIsmTemplate(config, policyName, ismHeaders);
+  }
+
+  private async ensureIsmTemplate(
+    config: DataStreamConfig,
+    policyName: string,
+    headers: Record<string, string>,
+  ): Promise<void> {
+    const templatePath = `/_plugins/_ism/templates/${config.templateName}`;
+
     try {
-      await this.client.indices.getIndexTemplate({
-        name: config.templateName,
-      });
+      await this.client.transport.request(
+        {
+          method: "GET",
+          path: templatePath,
+        },
+        { headers },
+      );
     } catch (error) {
       if (
         error instanceof errors.ResponseError &&
         error.statusCode === 404
       ) {
-        await this.client.indices.putIndexTemplate({
-          name: config.templateName,
-          index_patterns: [config.dataStream],
-          data_stream: {},
-          template: {
-            settings: {
-              "index.opendistro.index_state_management.policy_id": policyName,
+        await this.client.transport.request(
+          {
+            method: "PUT",
+            path: templatePath,
+            body: {
+              index_patterns: [config.dataStream],
+              priority: 500,
+              template: {
+                data_stream: {},
+                settings: {},
+                mappings: config.mappings,
+              },
+              policy_id: policyName,
             },
-            mappings: config.mappings,
           },
-          priority: 500,
-        });
+          { headers },
+        );
         this.logger.log(
           `OpenSearch ISM template ensured: ${config.templateName}`,
         );
