@@ -9,7 +9,8 @@
     "src/shared/common/**/*",
     "src/shared/logs/**/*",
     "src/shared/metrics/**/*",
-    "src/stream-processor/**/*"
+    "src/stream-processor/**/*",
+    "src/types/**/*"
   ],
   "exclude": [
     "src/query-api/**/*",

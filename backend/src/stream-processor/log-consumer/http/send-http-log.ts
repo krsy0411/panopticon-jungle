@@ -13,7 +13,7 @@ console.log(`[send-http-log] using brokers: ${brokers.join(", ")}`);
 const kafka = new Kafka({
   brokers,
   clientId: "cli-producer-http",
-  ...getKafkaSecurityOverrides(),
+  ...getKafkaSecurityOverrides(brokers),
 });
 
 const producer = kafka.producer();

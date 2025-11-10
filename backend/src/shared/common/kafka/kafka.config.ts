@@ -53,7 +53,9 @@ interface KafkaMicroserviceParams {
   brokers?: string[];
 }
 
-function buildKafkaSecurityConfig(): Pick<KafkaConfig, "ssl" | "sasl"> {
+type KafkaSecurityOverrides = Pick<KafkaConfig, "ssl" | "sasl">;
+
+function buildKafkaSecurityConfig(brokers: string[]): KafkaSecurityOverrides {
   const sslEnabled = process.env.KAFKA_SSL === "true";
   const sslRejectUnauthorized =
     process.env.KAFKA_SSL_REJECT_UNAUTHORIZED !== "false";
@@ -63,33 +65,75 @@ function buildKafkaSecurityConfig(): Pick<KafkaConfig, "ssl" | "sasl"> {
     : undefined;
 
   const mechanism = process.env.KAFKA_SASL_MECHANISM;
+  if (!mechanism) {
+    return { ssl };
+  }
+
+  if (mechanism === "oauthbearer") {
+    const region =
+      process.env.KAFKA_AWS_REGION ??
+      process.env.AWS_REGION ??
+      "ap-northeast-2";
+    const hostOverride = process.env.KAFKA_IAM_HOST;
+    const [firstBrokerHost = "localhost", portString = "9092"] =
+      (hostOverride ?? brokers[0] ?? DEFAULT_BROKER).split(":");
+    const brokerPort = Number(portString) || 9092;
+
+    return {
+      ssl,
+      sasl: {
+        mechanism: "oauthbearer",
+        oauthBearerProvider: async () => {
+          try {
+            const { generateAuthToken } = await import(
+              "aws-msk-iam-sasl-signer-js"
+            );
+            const token = await generateAuthToken({
+              region,
+              hostname: firstBrokerHost,
+              port: brokerPort,
+            });
+            return { value: token.token };
+          } catch (error) {
+            throw new Error(
+              `Failed to generate AWS MSK IAM auth token: ${error}`,
+            );
+          }
+        },
+      },
+    };
+  }
+
   const username = process.env.KAFKA_SASL_USERNAME;
   const password = process.env.KAFKA_SASL_PASSWORD;
+  if (username && password) {
+    return {
+      ssl,
+      sasl: {
+        mechanism: mechanism as Exclude<
+          KafkaConfig["sasl"],
+          undefined
+        >["mechanism"],
+        username,
+        password,
+      } as KafkaConfig["sasl"],
+    };
+  }
 
-  const sasl =
-    mechanism && username && password
-      ? ({
-          mechanism,
-          username,
-          password,
-        } as KafkaConfig["sasl"])
-      : undefined;
-
-  return { ssl, sasl };
+  return { ssl };
 }
 
-export function getKafkaSecurityOverrides(): Pick<
-  KafkaConfig,
-  "ssl" | "sasl"
-> {
-  return buildKafkaSecurityConfig();
+export function getKafkaSecurityOverrides(
+  brokers: string[] = [],
+): KafkaSecurityOverrides {
+  return buildKafkaSecurityConfig(brokers);
 }
 
 export function createKafkaMicroserviceOptions(
   params: KafkaMicroserviceParams,
 ): MicroserviceOptions {
   const brokers = params.brokers ?? parseKafkaBrokers();
-  const { ssl, sasl } = buildKafkaSecurityConfig();
+  const { ssl, sasl } = buildKafkaSecurityConfig(brokers);
 
   if (brokers.length === 0) {
     throw new Error(
