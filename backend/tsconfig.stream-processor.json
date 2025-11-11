@@ -7,8 +7,8 @@
   },
   "include": [
     "src/shared/common/**/*",
+    "src/shared/apm/**/*",
     "src/shared/logs/**/*",
-    "src/shared/metrics/**/*",
     "src/stream-processor/**/*",
     "src/types/**/*"
   ],
