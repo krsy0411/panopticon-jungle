@@ -10,7 +10,8 @@ import { Transport, TransportOptions } from "@elastic/transport";
 const DEFAULT_ROLLOVER_SIZE = "10gb";
 const DEFAULT_ROLLOVER_AGE = "1d";
 
-export type LogStreamKey = "app" | "http";
+// APM 로그/스팬 데이터 스트림 키
+export type LogStreamKey = "apmLogs" | "apmSpans";
 
 interface DataStreamConfig {
   key: LogStreamKey;
@@ -22,6 +23,11 @@ interface DataStreamConfig {
   rolloverAge: string;
 }
 
+/**
+ * Elasticsearch 데이터 스트림 생성/보호를 담당하는 인프라 서비스
+ * - stream-processor 는 쓰기 전용으로 사용
+ * - query-api 는 동일 스트림을 읽기 전용으로 사용
+ */
 @Injectable()
 export class LogStorageService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(LogStorageService.name);
@@ -70,59 +76,78 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         })
       : new Client(clientOptions);
 
-    const appStream = process.env.ELASTICSEARCH_APP_DATA_STREAM ?? "logs-app";
-    const httpStream =
-      process.env.ELASTICSEARCH_HTTP_DATA_STREAM ?? "logs-http";
+    const apmLogsStream =
+      process.env.ELASTICSEARCH_APM_LOG_STREAM ?? "logs-apm";
+    const apmSpansStream =
+      process.env.ELASTICSEARCH_APM_SPAN_STREAM ?? "traces-apm";
 
+    // 데이터 스트림별 매핑 정의
     this.configs = {
-      app: {
-        key: "app",
-        dataStream: appStream,
+      apmLogs: {
+        key: "apmLogs",
+        dataStream: apmLogsStream,
         templateName:
-          process.env.ELASTICSEARCH_APP_TEMPLATE ?? `${appStream}-template`,
+          process.env.ELASTICSEARCH_APM_LOG_TEMPLATE ??
+          `${apmLogsStream}-template`,
         ilmPolicyName:
-          process.env.ELASTICSEARCH_APP_ILM_POLICY ?? `${appStream}-ilm-policy`,
+          process.env.ELASTICSEARCH_APM_LOG_ILM_POLICY ??
+          `${apmLogsStream}-ilm-policy`,
         rolloverSize:
-          process.env.ELASTICSEARCH_APP_ROLLOVER_SIZE ?? DEFAULT_ROLLOVER_SIZE,
+          process.env.ELASTICSEARCH_APM_LOG_ROLLOVER_SIZE ??
+          DEFAULT_ROLLOVER_SIZE,
         rolloverAge:
-          process.env.ELASTICSEARCH_APP_ROLLOVER_AGE ?? DEFAULT_ROLLOVER_AGE,
+          process.env.ELASTICSEARCH_APM_LOG_ROLLOVER_AGE ??
+          DEFAULT_ROLLOVER_AGE,
         mappings: {
           properties: {
             "@timestamp": { type: "date" },
-            service: { type: "keyword" },
+            type: { type: "keyword" },
+            service_name: { type: "keyword" },
+            environment: { type: "keyword" },
             level: { type: "keyword" },
             message: { type: "text" },
-            remoteAddress: { type: "ip" },
-            userAgent: { type: "keyword", ignore_above: 512 },
+            trace_id: { type: "keyword" },
+            span_id: { type: "keyword" },
+            http_method: { type: "keyword" },
+            http_path: { type: "keyword" },
+            http_status_code: { type: "integer" },
+            labels: { type: "object", dynamic: true },
             ingestedAt: { type: "date" },
           },
         },
       },
-      http: {
-        key: "http",
-        dataStream: httpStream,
+      apmSpans: {
+        key: "apmSpans",
+        dataStream: apmSpansStream,
         templateName:
-          process.env.ELASTICSEARCH_HTTP_TEMPLATE ?? `${httpStream}-template`,
+          process.env.ELASTICSEARCH_APM_SPAN_TEMPLATE ??
+          `${apmSpansStream}-template`,
         ilmPolicyName:
-          process.env.ELASTICSEARCH_HTTP_ILM_POLICY ??
-          `${httpStream}-ilm-policy`,
+          process.env.ELASTICSEARCH_APM_SPAN_ILM_POLICY ??
+          `${apmSpansStream}-ilm-policy`,
         rolloverSize:
-          process.env.ELASTICSEARCH_HTTP_ROLLOVER_SIZE ?? DEFAULT_ROLLOVER_SIZE,
+          process.env.ELASTICSEARCH_APM_SPAN_ROLLOVER_SIZE ??
+          DEFAULT_ROLLOVER_SIZE,
         rolloverAge:
-          process.env.ELASTICSEARCH_HTTP_ROLLOVER_AGE ?? DEFAULT_ROLLOVER_AGE,
+          process.env.ELASTICSEARCH_APM_SPAN_ROLLOVER_AGE ??
+          DEFAULT_ROLLOVER_AGE,
         mappings: {
           properties: {
             "@timestamp": { type: "date" },
-            request_id: { type: "keyword" },
-            client_ip: { type: "ip" },
-            method: { type: "keyword" },
-            path: { type: "keyword" },
-            status_code: { type: "integer" },
-            request_time: { type: "double" },
-            user_agent: { type: "keyword", ignore_above: 512 },
-            upstream_service: { type: "keyword" },
-            upstream_status: { type: "integer" },
-            upstream_response_time: { type: "double" },
+            type: { type: "keyword" },
+            service_name: { type: "keyword" },
+            environment: { type: "keyword" },
+            trace_id: { type: "keyword" },
+            span_id: { type: "keyword" },
+            parent_span_id: { type: "keyword" },
+            name: { type: "keyword" },
+            kind: { type: "keyword" },
+            duration_ms: { type: "double" },
+            status: { type: "keyword" },
+            http_method: { type: "keyword" },
+            http_path: { type: "keyword" },
+            http_status_code: { type: "integer" },
+            labels: { type: "object", dynamic: true },
             ingestedAt: { type: "date" },
           },
         },
@@ -138,20 +163,15 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
     return this.configs[key].dataStream;
   }
 
-  getConfig(key: LogStreamKey): DataStreamConfig {
-    return this.configs[key];
-  }
-
   async onModuleInit(): Promise<void> {
     for (const config of Object.values(this.configs)) {
       if (this.useIsm) {
         await this.ensureIsmPolicy(config);
-        await this.ensureDataStream(config);
       } else {
         await this.ensureIlmPolicy(config);
         await this.ensureTemplate(config);
-        await this.ensureDataStream(config);
       }
+      await this.ensureDataStream(config);
     }
   }
 
@@ -159,6 +179,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
     await this.client.close();
   }
 
+  // ----- ILM 경로 (Elasticsearch 기본 정책) -----
   private async ensureIlmPolicy(config: DataStreamConfig): Promise<void> {
     try {
       await this.client.ilm.getLifecycle({ name: config.ilmPolicyName });
@@ -179,9 +200,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
             },
           },
         });
-        this.logger.log(
-          `Elasticsearch ILM policy ensured: ${config.ilmPolicyName}`,
-        );
+        this.logger.log(`ILM 정책 생성 완료: ${config.ilmPolicyName}`);
       } else {
         throw error;
       }
@@ -207,9 +226,7 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
           },
           priority: 500,
         });
-        this.logger.log(
-          `Elasticsearch index template ensured: ${config.templateName}`,
-        );
+        this.logger.log(`인덱스 템플릿 생성 완료: ${config.templateName}`);
       } else {
         throw error;
       }
@@ -224,15 +241,14 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
         await this.client.indices.createDataStream({
           name: config.dataStream,
         });
-        this.logger.log(
-          `Elasticsearch data stream ensured: ${config.dataStream}`,
-        );
+        this.logger.log(`데이터 스트림 생성 완료: ${config.dataStream}`);
       } else {
         throw error;
       }
     }
   }
 
+  // ----- ISM(OpenSearch) 경로 -----
   private async ensureIsmPolicy(config: DataStreamConfig): Promise<void> {
     const policyName =
       process.env.OPENSEARCH_ISM_POLICY ?? `${config.dataStream}-ism-policy`;
@@ -278,78 +294,50 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
           },
           { headers: ismHeaders },
         );
-        this.logger.log(`OpenSearch ISM policy ensured: ${policyName}`);
+        this.logger.log(`ISM 정책 생성 완료: ${policyName}`);
       } else {
         throw error;
       }
     }
 
-    await this.ensureIsmTemplate(config);
-    await this.attachIsmPolicy(config, policyName, ismHeaders);
+    await this.ensureIsmTemplate(config, policyName, ismHeaders);
   }
 
-  private async ensureIsmTemplate(config: DataStreamConfig): Promise<void> {
-    const patterns = [
-      config.dataStream,
-      `${config.dataStream}-*`,
-      `.ds-${config.dataStream}-*`,
-    ];
-
-    try {
-      await this.client.indices.putIndexTemplate({
-        name: config.templateName,
-        index_patterns: patterns,
-        priority: 500,
-        data_stream: {},
-        template: {
-          mappings: config.mappings,
-        },
-      });
-      this.logger.log(
-        `OpenSearch ISM index template ensured: ${config.templateName}`,
-      );
-    } catch (error) {
-      if (error instanceof errors.ResponseError && error.statusCode === 409) {
-        this.logger.warn(
-          `OpenSearch ISM index template already exists: ${config.templateName}`,
-        );
-        return;
-      }
-      throw error;
-    }
-  }
-
-  private async attachIsmPolicy(
+  private async ensureIsmTemplate(
     config: DataStreamConfig,
     policyName: string,
     headers: Record<string, string>,
   ): Promise<void> {
-    const pattern = `.ds-${config.dataStream}-*`;
+    const templatePath = `/_index_template/${config.templateName}`;
+    const payload = {
+      index_patterns: [`${config.dataStream}*`, config.dataStream],
+      priority: 500,
+      data_stream: {},
+      template: {
+        mappings: config.mappings,
+      },
+      ism_template: {
+        index_patterns: [`${config.dataStream}*`, config.dataStream],
+        priority: 500,
+        last_updated_time: Date.now(),
+        policy_id: policyName,
+      },
+    };
 
     try {
       await this.client.transport.request(
         {
-          method: "POST",
-          path: `/_plugins/_ism/add/${encodeURIComponent(pattern)}`,
-          body: {
-            policy_id: policyName,
-          },
+          method: "PUT",
+          path: templatePath,
+          body: payload,
         },
         { headers },
       );
-      this.logger.log(
-        `OpenSearch ISM policy ${policyName} attached to ${pattern}`,
-      );
+      this.logger.log(`ISM 인덱스 템플릿 생성 완료: ${config.templateName}`);
     } catch (error) {
       if (error instanceof errors.ResponseError && error.statusCode === 409) {
         this.logger.warn(
-          `OpenSearch ISM policy already attached to ${pattern}`,
-        );
-        return;
-      }
-      if (error instanceof errors.ResponseError && error.statusCode === 404) {
-        this.logger.warn(
-          `OpenSearch ISM add endpoint unavailable for ${pattern}, skipping.`,
+          `ISM 템플릿이 이미 존재하여 생성을 건너뜀: ${config.templateName}`,
         );
         return;
       }

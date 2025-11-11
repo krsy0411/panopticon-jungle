@@ -4,6 +4,6 @@ import { Controller, Get } from "@nestjs/common";
 export class QueryApiController {
   @Get("health")
   getHealth() {
-    return { status: "ok", timestamp: new Date().toISOString() };
+    return { status: "정상", timestamp: new Date().toISOString() };
   }
 }
