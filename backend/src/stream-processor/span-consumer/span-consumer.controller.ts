@@ -5,6 +5,13 @@ import { validateSync } from "class-validator";
 import { SpanIngestService } from "../apm/span-ingest/span-ingest.service";
 import { SpanEventDto } from "../../shared/apm/spans/dto/span-event.dto";
 
+class InvalidSpanEventError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidSpanEventError";
+  }
+}
+
 /**
  * APM 스팬 전용 Kafka 컨슈머
  */
@@ -29,6 +36,12 @@ export class SpanConsumerController {
         `스팬이 색인되었습니다. topic=${context.getTopic()} partition=${context.getPartition()}`,
       );
     } catch (error) {
+      if (error instanceof InvalidSpanEventError) {
+        this.logger.warn(
+          `유효하지 않은 스팬 이벤트를 건너뜁니다: ${error.message}`,
+        );
+        return;
+      }
       this.logger.error(
         "스팬 이벤트 처리에 실패했습니다.",
         error instanceof Error ? error.stack : String(error),
@@ -44,20 +57,26 @@ export class SpanConsumerController {
     const resolved = this.unwrapValue(payload);
     let plain: unknown;
 
-    if (typeof resolved === "string") {
-      plain = JSON.parse(resolved);
-    } else if (resolved instanceof Buffer) {
-      plain = JSON.parse(resolved.toString());
-    } else if (ArrayBuffer.isView(resolved)) {
-      plain = JSON.parse(Buffer.from(resolved.buffer).toString());
-    } else {
-      plain = resolved;
+    try {
+      if (typeof resolved === "string") {
+        plain = JSON.parse(resolved);
+      } else if (resolved instanceof Buffer) {
+        plain = JSON.parse(resolved.toString());
+      } else if (ArrayBuffer.isView(resolved)) {
+        plain = JSON.parse(Buffer.from(resolved.buffer).toString());
+      } else {
+        plain = resolved;
+      }
+    } catch (error) {
+      throw new InvalidSpanEventError(
+        `Kafka 스팬 payload JSON 파싱 실패: ${String(error)}`,
+      );
     }
 
     const dto = plainToInstance(SpanEventDto, plain);
     const errors = validateSync(dto, { whitelist: true });
     if (errors.length > 0) {
-      throw new Error(
+      throw new InvalidSpanEventError(
         `스팬 이벤트 형식이 올바르지 않습니다: ${errors
           .map((err) => Object.values(err.constraints ?? {}).join(", "))
           .join("; ")}`,
