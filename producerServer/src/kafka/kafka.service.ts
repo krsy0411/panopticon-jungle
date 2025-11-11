@@ -30,15 +30,19 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   // 토픽별 설정 정의
   private readonly topicConfigs: Record<string, TopicConfig> = {
     log: {
-      topic: 'log',
+      topic: 'apm.logs',
+      acks: 1,
+    },
+    span: {
+      topic: 'apm.spans',
       acks: 1,
     },
     trace: {
-      topic: 'trace',
+      topic: 'apm.traces',
       acks: 1,
     },
     metric: {
-      topic: 'metric',
+      topic: 'apm.metrics',
       acks: 1,
     },
   };
@@ -182,7 +186,8 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
    */
   async sendLogs(logData: any | any[]) {
     const logs = Array.isArray(logData) ? logData : [logData];
-    const messages = logs.map((log) => ({
+    const normalLog = logs.filter((log) => log.service_name);
+    const messages = normalLog.map((log) => ({
       key: log.service_name || 'unknown', // 파티션 키: service_name
       value: JSON.stringify(log),
     }));
@@ -191,11 +196,28 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Span 데이터 전송 (파티션 키: trace_id)
+   * OpenTelemetry Trace/Span 데이터 처리
+   */
+  async sendSpans(spanData: any | any[]) {
+    const spans = Array.isArray(spanData) ? spanData : [spanData];
+
+    const messages = spans.map((span) => ({
+      key: span.trace_id || span.traceId || 'unknown', // 파티션 키: trace_id
+      value: JSON.stringify(span),
+    }));
+
+    return this.sendMessage('trace', messages);
+  }
+
+  /**
    * Trace 데이터 전송 (파티션 키: trace_id)
    */
   async sendTraces(traceData: any | any[]) {
     const traces = Array.isArray(traceData) ? traceData : [traceData];
-    const messages = traces.map((trace) => ({
+    const normalTrace = traces.filter((trace) => trace.trace_id);
+
+    const messages = normalTrace.map((trace) => ({
       key: trace.trace_id || Date.now().toString(), // 파티션 키: trace_id
       value: JSON.stringify(trace),
     }));
@@ -230,7 +252,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       const topicsToCreate = [];
 
       // log, trace, metric 토픽 생성
-      const topics = ['apm.logs', 'apm.spans'];
+      const topics = ['apm.logs', 'apm.traces', 'apm.spans', 'apm.metrics'];
       for (const topic of topics) {
         if (!existingTopics.includes(topic)) {
           topicsToCreate.push({
