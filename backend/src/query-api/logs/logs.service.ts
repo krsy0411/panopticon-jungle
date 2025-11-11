@@ -45,7 +45,7 @@ export class LogSearchService {
   private toLogItem(document: ApmSearchResult<LogDocument>): LogItemDto {
     return {
       timestamp: document["@timestamp"],
-      level: document.level,
+      level: document.level as LogItemDto["level"],
       message: document.message,
       service_name: document.service_name,
       environment: document.environment,

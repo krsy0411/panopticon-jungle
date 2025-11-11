@@ -53,7 +53,7 @@ export class TraceQueryService {
       })),
       logs: logs.map((log) => ({
         timestamp: log["@timestamp"],
-        level: log.level,
+        level: log.level as TraceResponse["logs"][number]["level"],
         message: log.message,
         service_name: log.service_name,
         environment: log.environment,
