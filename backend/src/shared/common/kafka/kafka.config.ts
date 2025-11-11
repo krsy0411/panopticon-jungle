@@ -32,13 +32,18 @@ export function parseKafkaBrokers(): string[] {
 
   const brokers = resolveBrokerList(brokersEnv);
   if (process.env.DEBUG_KAFKA_BROKERS === "true") {
-    console.log("[kafka-config] brokersEnv:", brokersEnv, "resolved:", brokers);
+    console.log(
+      "[kafka-config] 환경 변수에서 읽은 브로커:",
+      brokersEnv,
+      "→ 변환 결과:",
+      brokers,
+    );
   }
 
   if (brokers.length === 0) {
     const fallbackList = resolveBrokerList(fallback);
     if (fallbackList.length === 0) {
-      throw new Error("Kafka configuration error: no brokers provided");
+      throw new Error("Kafka 브로커 설정을 찾을 수 없습니다.");
     }
     return fallbackList;
   }
@@ -87,9 +92,7 @@ function buildKafkaSecurityConfig(): KafkaSecurityOverrides {
             const token = await generateAuthToken({ region });
             return { value: token.token };
           } catch (error) {
-            throw new Error(
-              `Failed to generate AWS MSK IAM auth token: ${error}`,
-            );
+            throw new Error(`AWS MSK IAM 토큰 생성에 실패했습니다: ${error}`);
           }
         },
       },

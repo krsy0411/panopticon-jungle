@@ -17,5 +17,7 @@ logs/
 !src/query-api/logs/**
 !src/shared/logs/
 !src/shared/logs/**
+!src/shared/apm/logs/
+!src/shared/apm/logs/**
 !src/stream-processor/logs/
 !src/stream-processor/logs/**

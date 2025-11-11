@@ -8,8 +8,8 @@
   "include": [
     "src/query-api/**/*",
     "src/shared/common/**/*",
+    "src/shared/apm/**/*",
     "src/shared/logs/**/*",
-    "src/shared/metrics/**/*",
     "src/types/**/*"
   ],
   "exclude": [
