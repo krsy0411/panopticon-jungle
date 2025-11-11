@@ -1,4 +1,5 @@
 import {
+  IsIn,
   IsInt,
   IsISO8601,
   IsOptional,
@@ -13,12 +14,20 @@ export class ServiceMetricsQueryDto {
   environment?: string;
 
   @IsOptional()
+  @IsIn(["http_requests_total", "latency_p95_ms", "error_rate"])
+  metric?: "http_requests_total" | "latency_p95_ms" | "error_rate";
+
+  @IsOptional()
   @IsISO8601()
   from?: string;
 
   @IsOptional()
   @IsISO8601()
   to?: string;
+
+  @IsOptional()
+  @IsString()
+  interval?: string;
 
   @IsOptional()
   @IsInt()
