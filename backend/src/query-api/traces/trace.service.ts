@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from "@nestjs/common";
 import { ApmLogRepository } from "../../shared/apm/logs/log.repository";
 import { SpanRepository } from "../../shared/apm/spans/span.repository";
 import type { TraceResponse } from "./trace.types";
+import type { TraceLookupQueryDto } from "./dto/trace-lookup-query.dto";
 
 @Injectable()
 export class TraceQueryService {
@@ -10,10 +11,21 @@ export class TraceQueryService {
     private readonly logRepository: ApmLogRepository,
   ) {}
 
-  async getTrace(traceId: string): Promise<TraceResponse> {
+  async getTrace(
+    traceId: string,
+    filters: TraceLookupQueryDto,
+  ): Promise<TraceResponse> {
     const [spans, logs] = await Promise.all([
-      this.spanRepository.findByTraceId({ traceId }),
-      this.logRepository.findByTraceId({ traceId }),
+      this.spanRepository.findByTraceId({
+        traceId,
+        serviceName: filters.service,
+        environment: filters.environment,
+      }),
+      this.logRepository.findByTraceId({
+        traceId,
+        serviceName: filters.service,
+        environment: filters.environment,
+      }),
     ]);
 
     if (spans.length === 0 && logs.length === 0) {

@@ -22,11 +22,15 @@ async function bootstrap() {
 
   // Swagger 설정
   const config = new DocumentBuilder()
-    .setTitle("Panopticon APM Query API")
-    .setDescription("트레이스 검색 및 서비스 메트릭 조회 전용 API")
-    .setVersion("1.0")
-    .addTag("traces", "Trace 관련 API")
-    .addTag("service-metrics", "서비스 파생 메트릭 API")
+    .setTitle("Panopticon APM Query API v2")
+    .setDescription("APM 로그·스팬 조회 및 서비스 메트릭을 제공하는 읽기 전용 API")
+    .setVersion("1.1")
+    .addTag("traces", "트레이스 상세 조회 API")
+    .addTag("services", "서비스 개요 / 엔드포인트 / 트레이스 검색 API")
+    .addTag("service-metrics", "서비스 메트릭 시계열 API")
+    .addTag("logs", "APM 로그 검색 API")
+    .addTag("spans", "스팬 검색 API")
+    .addTag("alb", "로드밸런서 헬스 체크")
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
@@ -34,11 +38,8 @@ async function bootstrap() {
 
   await app.listen(process.env.PORT ?? 3001);
 
-  console.log(
-    `Query API 서버가 실행 중입니다: http://localhost:${process.env.PORT ?? 3001}`,
-  );
-  console.log(
-    `Swagger UI 주소: http://localhost:${process.env.PORT ?? 3001}/api-docs`,
-  );
+  const port = process.env.PORT ?? 3001;
+  console.log(`Query API 서버가 실행 중입니다: http://localhost:${port}`);
+  console.log(`Swagger UI 주소: http://localhost:${port}/api-docs`);
 }
 void bootstrap();

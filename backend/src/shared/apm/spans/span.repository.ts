@@ -9,6 +9,8 @@ import { LogStorageService } from "../../logs/log-storage.service";
 export interface SpanSearchParams {
   traceId: string;
   size?: number;
+  serviceName?: string;
+  environment?: string;
 }
 
 export interface ServiceMetricQuery {
@@ -16,7 +18,7 @@ export interface ServiceMetricQuery {
   environment?: string;
   from: string;
   to: string;
-  intervalMinutes: number;
+  interval: string;
 }
 
 export interface ServiceMetricBucket {
@@ -24,6 +26,75 @@ export interface ServiceMetricBucket {
   total: number;
   errorRate: number;
   p95Latency: number;
+}
+
+export interface ServiceOverviewParams {
+  from: string;
+  to: string;
+  environment?: string;
+  limit: number;
+  nameFilter?: string;
+}
+
+export interface ServiceOverviewItem {
+  serviceName: string;
+  environment: string;
+  requestCount: number;
+  latencyP95: number;
+  errorRate: number;
+}
+
+export interface EndpointMetricsParams {
+  serviceName: string;
+  from: string;
+  to: string;
+  environment?: string;
+  limit: number;
+  nameFilter?: string;
+}
+
+export interface EndpointMetricsItem {
+  endpointName: string;
+  serviceName: string;
+  environment: string;
+  requestCount: number;
+  latencyP95: number;
+  errorRate: number;
+}
+
+export interface SpanListQuery {
+  serviceName?: string;
+  environment?: string;
+  name?: string;
+  kind?: string;
+  status?: string;
+  traceId?: string;
+  parentSpanId?: string;
+  from: string;
+  to: string;
+  page: number;
+  size: number;
+  sort: Array<Record<string, { order: "asc" | "desc" }>>;
+  minDurationMs?: number;
+  maxDurationMs?: number;
+}
+
+export interface SpanSearchResult<T extends SpanDocument = SpanDocument> {
+  total: number;
+  hits: Array<ApmSearchResult<T>>;
+}
+
+export interface ServiceTraceSearchParams {
+  serviceName: string;
+  environment?: string;
+  status?: string;
+  minDurationMs?: number;
+  maxDurationMs?: number;
+  from: string;
+  to: string;
+  page: number;
+  size: number;
+  sort: Array<Record<string, { order: "asc" | "desc" }>>;
 }
 
 /**
@@ -38,17 +109,57 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     super(storage, SpanRepository.STREAM_KEY);
   }
 
+  private buildTimeRangeFilter(from: string, to: string) {
+    return {
+      range: {
+        "@timestamp": {
+          gte: from,
+          lte: to,
+        },
+      },
+    };
+  }
+
+  private buildDurationRangeFilter(
+    min?: number,
+    max?: number,
+  ): Record<string, unknown> | null {
+    if (min == null && max == null) {
+      return null;
+    }
+
+    return {
+      range: {
+        duration_ms: {
+          ...(min != null ? { gte: min } : {}),
+          ...(max != null ? { lte: max } : {}),
+        },
+      },
+    };
+  }
+
   async findByTraceId(
     params: SpanSearchParams,
   ): Promise<Array<ApmSearchResult<SpanDocument>>> {
     const size = params.size ?? 500;
+    const filter: Array<Record<string, unknown>> = [
+      { term: { trace_id: params.traceId } },
+    ];
+
+    if (params.serviceName) {
+      filter.push({ term: { service_name: params.serviceName } });
+    }
+    if (params.environment) {
+      filter.push({ term: { environment: params.environment } });
+    }
+
     const response = await this.client.search<SpanDocument>({
       index: this.dataStream,
       size,
       sort: [{ "@timestamp": { order: "asc" as const } }],
       query: {
         bool: {
-          must: [{ term: { trace_id: params.traceId } }],
+          filter,
         },
       },
     });
@@ -98,12 +209,12 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
         per_interval: {
           date_histogram: {
             field: "@timestamp",
-            fixed_interval: `${params.intervalMinutes}m`,
+            fixed_interval: params.interval,
             time_zone: "UTC",
             min_doc_count: 0,
           },
           aggs: {
-            total_requests: { value_count: { field: "span_id.keyword" } },
+            total_requests: { value_count: { field: "span_id" } },
             error_requests: {
               filter: {
                 term: {
@@ -150,5 +261,325 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
         p95Latency: Number.isFinite(latencyValue) ? latencyValue : 0,
       };
     });
+  }
+
+  /**
+   * 서비스 개요(요청수/지연/에러율) 집계
+   */
+  async aggregateServiceOverview(
+    params: ServiceOverviewParams,
+  ): Promise<ServiceOverviewItem[]> {
+    const response = await this.client.search({
+      index: this.dataStream,
+      size: 0,
+      query: {
+        bool: {
+          filter: [
+            this.buildTimeRangeFilter(params.from, params.to),
+            ...(params.environment ? [{ term: { environment: params.environment } }] : []),
+          ],
+        },
+      },
+      aggs: {
+        services: {
+          terms: {
+            field: "service_name.keyword",
+            size: params.limit,
+          },
+          aggs: {
+            envs: {
+              terms: {
+                field: "environment.keyword",
+                size: 5,
+              },
+              aggs: {
+                latency: {
+                  percentiles: {
+                    field: "duration_ms",
+                    percents: [95],
+                  },
+                },
+                error_requests: {
+                  filter: {
+                    term: { status: "ERROR" },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const buckets =
+      (
+        response.aggregations as {
+          services?: {
+            buckets: Array<{
+              key: string;
+              doc_count: number;
+              envs: {
+                buckets: Array<{
+                  key: string;
+                  doc_count: number;
+                  latency: { values: Record<string, number> };
+                  error_requests: { doc_count: number };
+                }>;
+              };
+            }>;
+          };
+        }
+      )?.services?.buckets ?? [];
+
+    const items: ServiceOverviewItem[] = [];
+
+    for (const serviceBucket of buckets) {
+      for (const envBucket of serviceBucket.envs.buckets) {
+        const total = envBucket.doc_count;
+        const errors = envBucket.error_requests.doc_count ?? 0;
+        const latencyValue =
+          envBucket.latency.values["95.0"] ??
+          envBucket.latency.values["95"] ??
+          NaN;
+
+        items.push({
+          serviceName: serviceBucket.key,
+          environment: envBucket.key,
+          requestCount: total,
+          latencyP95: Number.isFinite(latencyValue) ? latencyValue : 0,
+          errorRate: total > 0 ? errors / total : 0,
+        });
+      }
+    }
+
+    if (params.nameFilter) {
+      const keyword = params.nameFilter.toLowerCase();
+      return items.filter((item) =>
+        item.serviceName.toLowerCase().includes(keyword),
+      );
+    }
+
+    return items;
+  }
+
+  /**
+   * 서비스 내 endpoint(스팬 이름) 단위 메트릭 집계
+   */
+  async aggregateEndpointMetrics(
+    params: EndpointMetricsParams,
+  ): Promise<EndpointMetricsItem[]> {
+    const response = await this.client.search({
+      index: this.dataStream,
+      size: 0,
+      query: {
+        bool: {
+          must: [
+            { term: { service_name: params.serviceName } },
+            { term: { kind: "SERVER" } },
+          ],
+          filter: [
+            this.buildTimeRangeFilter(params.from, params.to),
+            ...(params.environment
+              ? [{ term: { environment: params.environment } }]
+              : []),
+          ],
+        },
+      },
+      aggs: {
+        endpoints: {
+          terms: {
+            field: "name.keyword",
+            size: params.limit,
+          },
+          aggs: {
+            latency: {
+              percentiles: {
+                field: "duration_ms",
+                percents: [95],
+              },
+            },
+            error_requests: {
+              filter: {
+                term: { status: "ERROR" },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const buckets =
+      (
+        response.aggregations as {
+          endpoints?: {
+            buckets: Array<{
+              key: string;
+              doc_count: number;
+              latency: { values: Record<string, number> };
+              error_requests: { doc_count: number };
+            }>;
+          };
+        }
+      )?.endpoints?.buckets ?? [];
+
+    const items = buckets.map((bucket) => {
+      const total = bucket.doc_count;
+      const errors = bucket.error_requests.doc_count ?? 0;
+      const latencyValue =
+        bucket.latency.values["95.0"] ?? bucket.latency.values["95"] ?? NaN;
+
+      return {
+        endpointName: bucket.key,
+        serviceName: params.serviceName,
+        environment: params.environment ?? "all",
+        requestCount: total,
+        latencyP95: Number.isFinite(latencyValue) ? latencyValue : 0,
+        errorRate: total > 0 ? errors / total : 0,
+      };
+    });
+
+    if (params.nameFilter) {
+      const keyword = params.nameFilter.toLowerCase();
+      return items.filter((item) =>
+        item.endpointName.toLowerCase().includes(keyword),
+      );
+    }
+
+    return items;
+  }
+
+  /**
+   * 범용 스팬 검색
+   */
+  async searchSpans(
+    params: SpanListQuery,
+  ): Promise<SpanSearchResult<SpanDocument>> {
+    const from = (params.page - 1) * params.size;
+    const filters: Array<Record<string, unknown>> = [
+      this.buildTimeRangeFilter(params.from, params.to),
+      ...(params.environment
+        ? [{ term: { environment: params.environment } }]
+        : []),
+      ...(params.serviceName
+        ? [{ term: { service_name: params.serviceName } }]
+        : []),
+      ...(params.name ? [{ term: { name: params.name } }] : []),
+      ...(params.kind ? [{ term: { kind: params.kind } }] : []),
+      ...(params.status ? [{ term: { status: params.status } }] : []),
+      ...(params.traceId ? [{ term: { trace_id: params.traceId } }] : []),
+      ...(params.parentSpanId
+        ? [{ term: { parent_span_id: params.parentSpanId } }]
+        : []),
+    ];
+
+    const durationFilter = this.buildDurationRangeFilter(
+      params.minDurationMs,
+      params.maxDurationMs,
+    );
+    if (durationFilter) {
+      filters.push(durationFilter);
+    }
+
+    const response = await this.client.search<SpanDocument>({
+      index: this.dataStream,
+      from,
+      size: params.size,
+      sort: params.sort,
+      track_total_hits: true,
+      query: {
+        bool: {
+          filter: filters,
+        },
+      },
+    });
+
+    const hits = response.hits.hits
+      .filter(
+        (hit): hit is typeof hit & { _source: SpanDocument; _id: string } =>
+          Boolean(hit._source) && typeof hit._id === "string",
+      )
+      .map((hit) => ({
+        id: hit._id,
+        ...hit._source,
+      }));
+
+    const total =
+      typeof response.hits.total === "number"
+        ? response.hits.total
+        : response.hits.total?.value ?? 0;
+
+    return {
+      total,
+      hits,
+    };
+  }
+
+  /**
+   * 서비스별 루트 스팬(트레이스 요약) 검색
+   */
+  async searchServiceTraces(
+    params: ServiceTraceSearchParams,
+  ): Promise<SpanSearchResult<SpanDocument>> {
+    const from = (params.page - 1) * params.size;
+    const filters: Array<Record<string, unknown>> = [
+      { term: { service_name: params.serviceName } },
+      { term: { kind: "SERVER" } },
+      this.buildTimeRangeFilter(params.from, params.to),
+      { bool: { must_not: [{ exists: { field: "parent_span_id" } }] } },
+    ];
+
+    if (params.environment) {
+      filters.push({ term: { environment: params.environment } });
+    }
+    if (params.status) {
+      filters.push({ term: { status: params.status } });
+    }
+    if (params.minDurationMs != null || params.maxDurationMs != null) {
+      filters.push({
+        range: {
+          duration_ms: {
+            ...(params.minDurationMs != null
+              ? { gte: params.minDurationMs }
+              : {}),
+            ...(params.maxDurationMs != null
+              ? { lte: params.maxDurationMs }
+              : {}),
+          },
+        },
+      });
+    }
+
+    const response = await this.client.search<SpanDocument>({
+      index: this.dataStream,
+      from,
+      size: params.size,
+      sort: params.sort,
+      track_total_hits: true,
+      query: {
+        bool: {
+          filter: filters,
+        },
+      },
+    });
+
+    const hits = response.hits.hits
+      .filter(
+        (hit): hit is typeof hit & { _source: SpanDocument; _id: string } =>
+          Boolean(hit._source) && typeof hit._id === "string",
+      )
+      .map((hit) => ({
+        id: hit._id,
+        ...hit._source,
+      }));
+
+    const total =
+      typeof response.hits.total === "number"
+        ? response.hits.total
+        : response.hits.total?.value ?? 0;
+
+    return {
+      total,
+      hits,
+    };
   }
 }
