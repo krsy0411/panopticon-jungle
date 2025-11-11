@@ -38,12 +38,12 @@ export class KafkaController {
     }
   }
 
-  @Post('metrics/http')
+  @Post('metrics')
   @HttpCode(HttpStatus.ACCEPTED)
   async ingestMetricsHttp(@Body() data: MetricsHttpDto | MetricsHttpDto[]) {
     try {
       const metrics = Array.isArray(data) ? data : [data];
-      await this.kafkaService.sendMetricsHttp(metrics);
+      await this.kafkaService.sendMetrics(metrics);
 
       this.logger.log(`Ingested ${metrics.length} HTTP metric(s)`);
       return {
@@ -57,33 +57,12 @@ export class KafkaController {
     }
   }
 
-  @Post('metrics/system')
-  @HttpCode(HttpStatus.ACCEPTED)
-  async ingestMetricsSystem(
-    @Body() data: MetricsSystemDto | MetricsSystemDto[],
-  ) {
-    try {
-      const metrics = Array.isArray(data) ? data : [data];
-      await this.kafkaService.sendMetricsSystem(metrics);
-
-      this.logger.log(`Ingested ${metrics.length} system metric(s)`);
-      return {
-        success: true,
-        count: metrics.length,
-        message: 'System metrics ingested successfully',
-      };
-    } catch (error) {
-      this.logger.error('Failed to ingest system metrics', error);
-      throw error;
-    }
-  }
-
-  @Post('spans')
+  @Post('traces')
   @HttpCode(HttpStatus.ACCEPTED)
   async ingestSpans(@Body() data: SpanDto | SpanDto[]) {
     try {
       const spans = Array.isArray(data) ? data : [data];
-      await this.kafkaService.sendSpans(spans);
+      await this.kafkaService.sendTraces(spans);
 
       this.logger.log(`Ingested ${spans.length} span(s)`);
       return {

@@ -5,7 +5,13 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Kafka, Producer, ProducerRecord } from 'kafkajs';
+import {
+  Kafka,
+  Producer,
+  ProducerRecord,
+  Admin,
+  CompressionTypes,
+} from 'kafkajs';
 
 // 토픽별 설정
 interface TopicConfig {
@@ -18,29 +24,22 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KafkaService.name);
   private kafka: Kafka;
   private producer: Producer;
+  private admin: Admin;
   private isConnected = false;
 
   // 토픽별 설정 정의
   private readonly topicConfigs: Record<string, TopicConfig> = {
-    logs: {
-      topic: this.configService.get<string>('KAFKA_TOPIC_LOGS') || 'logs',
-      acks: 1, // 리더 확인
+    log: {
+      topic: 'log',
+      acks: 1,
     },
-    'metrics-http': {
-      topic:
-        this.configService.get<string>('KAFKA_TOPIC_METRICS_HTTP') ||
-        'metrics-http',
-      acks: 0, // 확인 없음 (고빈도/비중요)
+    trace: {
+      topic: 'trace',
+      acks: 1,
     },
-    'metrics-system': {
-      topic:
-        this.configService.get<string>('KAFKA_TOPIC_METRICS_SYSTEM') ||
-        'metrics-system',
-      acks: 0, // 확인 없음 (고빈도/비중요)
-    },
-    spans: {
-      topic: this.configService.get<string>('KAFKA_TOPIC_SPANS') || 'spans',
-      acks: 1, // 리더 확인 (tracing 중요)
+    metric: {
+      topic: 'metric',
+      acks: 1,
     },
   };
 
@@ -80,50 +79,43 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
           },
         },
       }),
-    } as any);
-
-    // Producer 성능 최적화 설정
-    const compression =
-      this.configService.get<string>('KAFKA_COMPRESSION') || 'snappy';
-    const batchSize = parseInt(
-      this.configService.get<string>('KAFKA_BATCH_SIZE') || '16384',
-      10,
-    );
-    const lingerMs = parseInt(
-      this.configService.get<string>('KAFKA_LINGER_MS') || '10',
-      10,
-    );
+    });
 
     this.producer = this.kafka.producer({
-      allowAutoTopicCreation: !isProduction, // 로컬에서는 자동 토픽 생성 허용
+      allowAutoTopicCreation: !isProduction, // 로컬에서는 자동 생성
       transactionTimeout: 30000,
-      // 성능 최적화 설정
       retry: {
-        retries: 3, // 재시도 3회
+        retries: 3,
         initialRetryTime: 100,
         multiplier: 2,
         maxRetryTime: 30000,
       },
-      // Batch 설정
-      // compression:
-      //   CompressionTypes[
-      //     compression.toUpperCase() as keyof typeof CompressionTypes
-      //   ] || CompressionTypes.Snappy,
+      // 배치 비활성화 (즉시 전송)
+      idempotent: false,
+      maxInFlightRequests: 1,
     });
+
+    this.admin = this.kafka.admin();
 
     this.logger.log(
       `Kafka configured for ${isProduction ? 'production (MSK)' : 'development (local)'} in region: ${region}`,
     );
     this.logger.log(
-      `Producer settings - compression: ${compression}, batchSize: ${batchSize}, lingerMs: ${lingerMs}`,
+      'Producer settings - acks: 1, compression: none (per message), batch: disabled',
     );
   }
 
   async onModuleInit() {
     try {
+      await this.admin.connect();
+      this.logger.log('Kafka Admin connected successfully');
+
       await this.producer.connect();
       this.isConnected = true;
       this.logger.log('Kafka Producer connected successfully');
+
+      // 토픽 생성 (로컬 테스트용)
+      await this.createTopics();
     } catch (error) {
       this.logger.error('Failed to connect Kafka Producer', error);
       throw error;
@@ -135,8 +127,11 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       await this.producer.disconnect();
       this.isConnected = false;
       this.logger.log('Kafka Producer disconnected');
+
+      await this.admin.disconnect();
+      this.logger.log('Kafka Admin disconnected');
     } catch (error) {
-      this.logger.error('Failed to disconnect Kafka Producer', error);
+      this.logger.error('Failed to disconnect Kafka Producer/Admin', error);
     }
   }
 
@@ -160,6 +155,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       const record: ProducerRecord = {
         topic: config.topic,
         acks: config.acks,
+        compression: CompressionTypes.None, // 압축 비활성화
         messages: messages.map((msg) => ({
           key: msg.key,
           value: msg.value,
@@ -168,7 +164,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
       const result = await this.producer.send(record);
       this.logger.debug(
-        `Message sent to topic ${config.topic} (acks=${config.acks}):`,
+        `Message sent to topic ${config.topic} (acks=${config.acks}, compression=none):`,
         result,
       );
       return result;
@@ -182,62 +178,42 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Logs 데이터 전송 (acks=1)
+   * Log 데이터 전송 (파티션 키: service_name)
    */
   async sendLogs(logData: any | any[]) {
     const logs = Array.isArray(logData) ? logData : [logData];
     const messages = logs.map((log) => ({
-      key: log.id || log.timestamp || Date.now().toString(),
+      key: log.service_name || 'unknown', // 파티션 키: service_name
       value: JSON.stringify(log),
     }));
 
-    return this.sendMessage('logs', messages);
+    return this.sendMessage('log', messages);
   }
 
   /**
-   * HTTP Metrics 데이터 전송 (acks=0, 고빈도)
+   * Trace 데이터 전송 (파티션 키: trace_id)
    */
-  async sendMetricsHttp(metricData: any | any[]) {
+  async sendTraces(traceData: any | any[]) {
+    const traces = Array.isArray(traceData) ? traceData : [traceData];
+    const messages = traces.map((trace) => ({
+      key: trace.trace_id || Date.now().toString(), // 파티션 키: trace_id
+      value: JSON.stringify(trace),
+    }));
+
+    return this.sendMessage('trace', messages);
+  }
+
+  /**
+   * Metric 데이터 전송 (파티션 키: pod_id)
+   */
+  async sendMetrics(metricData: any | any[]) {
     const metrics = Array.isArray(metricData) ? metricData : [metricData];
     const messages = metrics.map((metric) => ({
-      key: metric.id || Date.now().toString(),
+      key: metric.pod_id || 'unknown', // 파티션 키: pod_id
       value: JSON.stringify(metric),
     }));
 
-    return this.sendMessage('metrics-http', messages);
-  }
-
-  /**
-   * System Metrics 데이터 전송 (acks=0, 고빈도)
-   */
-  async sendMetricsSystem(metricData: any | any[]) {
-    const metrics = Array.isArray(metricData) ? metricData : [metricData];
-    const messages = metrics.map((metric) => ({
-      key: metric.id || Date.now().toString(),
-      value: JSON.stringify(metric),
-    }));
-
-    return this.sendMessage('metrics-system', messages);
-  }
-
-  /**
-   * Spans 데이터 전송 (acks=1, tracing 중요)
-   */
-  async sendSpans(spanData: any | any[]) {
-    const spans = Array.isArray(spanData) ? spanData : [spanData];
-    const messages = spans.map((span) => ({
-      key: span.traceId || span.spanId || Date.now().toString(),
-      value: JSON.stringify(span),
-    }));
-
-    return this.sendMessage('spans', messages);
-  }
-
-  /**
-   * 레거시 메서드 (하위 호환성)
-   */
-  async sendLogMessage(logData: any) {
-    return this.sendLogs(logData);
+    return this.sendMessage('metric', messages);
   }
 
   isProducerConnected(): boolean {
@@ -245,9 +221,46 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 토픽 설정 조회
+   * 토픽 생성 (로컬 테스트용)
+   * - 각 토픽: 파티션 6개, retention 3일
    */
-  getTopicConfigs() {
-    return this.topicConfigs;
+  async createTopics() {
+    try {
+      const existingTopics = await this.admin.listTopics();
+      const topicsToCreate = [];
+
+      // log, trace, metric 토픽 생성
+      const topics = ['log', 'trace', 'metric'];
+      for (const topic of topics) {
+        if (!existingTopics.includes(topic)) {
+          topicsToCreate.push({
+            topic,
+            numPartitions: 6, // 파티션 6개
+            replicationFactor: 1, // 로컬 브로커 1개
+            configEntries: [
+              {
+                name: 'retention.ms',
+                value: String(3 * 24 * 60 * 60 * 1000), // 3일 (밀리초)
+              },
+            ],
+          });
+        }
+      }
+
+      if (topicsToCreate.length > 0) {
+        await this.admin.createTopics({
+          topics: topicsToCreate,
+          waitForLeaders: true,
+        });
+        this.logger.log(
+          `Created topics: ${topicsToCreate.map((t) => t.topic).join(', ')} (partitions: 6, retention: 3 days, replication: 1)`,
+        );
+      } else {
+        this.logger.log('All required topics already exist');
+      }
+    } catch (error) {
+      this.logger.error('Failed to create topics', error);
+      // 토픽 생성 실패는 앱 시작을 막지 않음
+    }
   }
 }
