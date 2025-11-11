@@ -54,7 +54,11 @@ export class LogConsumerController {
       plain = resolved;
     }
 
-    const dto = plainToInstance(LogEventDto, plain);
+    if (!plain || typeof plain !== "object") {
+      throw new Error("Kafka 로그 payload가 객체 형식이 아닙니다.");
+    }
+
+    const dto = plainToInstance(LogEventDto, plain as Record<string, unknown>);
     const errors = validateSync(dto, { whitelist: true });
     if (errors.length > 0) {
       throw new Error(
