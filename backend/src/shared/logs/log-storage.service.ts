@@ -316,12 +316,6 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
       template: {
         mappings: config.mappings,
       },
-      ism_template: {
-        index_patterns: [`${config.dataStream}*`, config.dataStream],
-        priority: 500,
-        last_updated_time: Date.now(),
-        policy_id: policyName,
-      },
     };
 
     try {
