@@ -3,7 +3,7 @@ name: CD - Build & Deploy
 on:
   push:
     branches:
-      - feature/log-api-11d
+      - feature/로그추가개발
       # - main
   workflow_dispatch:
 
