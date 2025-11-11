@@ -7,9 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { KafkaService } from './kafka.service';
-import { LogDto } from '../dto/logs.dto';
 import { MetricsHttpDto } from '../dto/metrics-http.dto';
-import { MetricsSystemDto } from '../dto/metrics-system.dto';
 import { SpanDto } from '../dto/spans.dto';
 
 @Controller()
@@ -21,15 +19,18 @@ export class KafkaController {
   // 로그 수집 API
   @Post('logs')
   @HttpCode(HttpStatus.ACCEPTED)
-  async ingestLogs(@Body() data: LogDto | LogDto[]) {
+  async ingestLogs(@Body() data: any) {
     try {
-      const logs = Array.isArray(data) ? data : [data];
-      await this.kafkaService.sendLogs(logs);
-
-      this.logger.log(`Ingested ${logs.length} log(s)`);
+      console.log('========== TRACE DEBUG ==========');
+      console.log('Raw body type:', typeof data);
+      console.log('Raw body:', JSON.stringify(data));
+      console.log('Body size:', JSON.stringify(data).length, 'bytes');
+      console.log('Is Array:', Array.isArray(data));
+      console.log('=================================');
+      // await this.kafkaService.sendLogs(logs);
       return {
         success: true,
-        count: logs.length,
+        count: data.length,
         message: 'Logs ingested successfully',
       };
     } catch (error) {
