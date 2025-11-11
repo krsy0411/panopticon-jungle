@@ -5,6 +5,13 @@ import { validateSync } from "class-validator";
 import { LogIngestService } from "../apm/log-ingest/log-ingest.service";
 import { LogEventDto } from "../../shared/apm/logs/dto/log-event.dto";
 
+class InvalidLogEventError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InvalidLogEventError";
+  }
+}
+
 /**
  * APM 로그 전용 Kafka 컨슈머
  */
@@ -29,6 +36,12 @@ export class LogConsumerController {
         `로그가 색인되었습니다. topic=${context.getTopic()} partition=${context.getPartition()}`,
       );
     } catch (error) {
+      if (error instanceof InvalidLogEventError) {
+        this.logger.warn(
+          `유효하지 않은 로그 이벤트를 건너뜁니다: ${error.message}`,
+        );
+        return;
+      }
       this.logger.error(
         "로그 이벤트 처리에 실패했습니다.",
         error instanceof Error ? error.stack : String(error),
@@ -44,24 +57,32 @@ export class LogConsumerController {
     const resolved = this.unwrapValue(payload);
     let plain: unknown;
 
-    if (typeof resolved === "string") {
-      plain = JSON.parse(resolved);
-    } else if (resolved instanceof Buffer) {
-      plain = JSON.parse(resolved.toString());
-    } else if (ArrayBuffer.isView(resolved)) {
-      plain = JSON.parse(Buffer.from(resolved.buffer).toString());
-    } else {
-      plain = resolved;
+    try {
+      if (typeof resolved === "string") {
+        plain = JSON.parse(resolved);
+      } else if (resolved instanceof Buffer) {
+        plain = JSON.parse(resolved.toString());
+      } else if (ArrayBuffer.isView(resolved)) {
+        plain = JSON.parse(Buffer.from(resolved.buffer).toString());
+      } else {
+        plain = resolved;
+      }
+    } catch (error) {
+      throw new InvalidLogEventError(
+        `Kafka 로그 payload JSON 파싱 실패: ${String(error)}`,
+      );
     }
 
     if (!plain || typeof plain !== "object") {
-      throw new Error("Kafka 로그 payload가 객체 형식이 아닙니다.");
+      throw new InvalidLogEventError(
+        "Kafka 로그 payload가 객체 형식이 아닙니다.",
+      );
     }
 
     const dto = plainToInstance(LogEventDto, plain as Record<string, unknown>);
     const errors = validateSync(dto, { whitelist: true });
     if (errors.length > 0) {
-      throw new Error(
+      throw new InvalidLogEventError(
         `로그 이벤트 형식이 올바르지 않습니다: ${errors
           .map((err) => Object.values(err.constraints ?? {}).join(", "))
           .join("; ")}`,
