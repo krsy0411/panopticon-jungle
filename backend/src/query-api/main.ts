@@ -23,7 +23,9 @@ async function bootstrap() {
   // Swagger 설정
   const config = new DocumentBuilder()
     .setTitle("Panopticon APM Query API v2")
-    .setDescription("APM 로그·스팬 조회 및 서비스 메트릭을 제공하는 읽기 전용 API")
+    .setDescription(
+      "APM 로그·스팬 조회 및 서비스 메트릭을 제공하는 읽기 전용 API",
+    )
     .setVersion("1.1")
     .addTag("traces", "트레이스 상세 조회 API")
     .addTag("services", "서비스 개요 / 엔드포인트 / 트레이스 검색 API")

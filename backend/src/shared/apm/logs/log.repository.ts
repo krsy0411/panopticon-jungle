@@ -151,7 +151,7 @@ export class ApmLogRepository extends BaseApmRepository<LogDocument> {
     const total =
       typeof response.hits.total === "number"
         ? response.hits.total
-        : response.hits.total?.value ?? 0;
+        : (response.hits.total?.value ?? 0);
 
     return {
       total,

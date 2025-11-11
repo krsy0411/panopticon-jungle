@@ -37,7 +37,8 @@ export class TraceController {
   @ApiQuery({
     name: "service",
     required: false,
-    description: "서비스 이름을 명시하면 동일 trace_id 충돌을 방지할 수 있습니다.",
+    description:
+      "서비스 이름을 명시하면 동일 trace_id 충돌을 방지할 수 있습니다.",
     example: "payment-service",
   })
   @ApiOkResponse({
@@ -45,7 +46,10 @@ export class TraceController {
     schema: {
       type: "object",
       properties: {
-        trace_id: { type: "string", example: "c4af1d2e3b5a6f78901234567890abcd" },
+        trace_id: {
+          type: "string",
+          example: "c4af1d2e3b5a6f78901234567890abcd",
+        },
         spans: {
           type: "array",
           items: {
@@ -68,7 +72,10 @@ export class TraceController {
               status: { type: "string", example: "ERROR" },
               service_name: { type: "string", example: "payment-service" },
               environment: { type: "string", example: "prod" },
-              trace_id: { type: "string", example: "c4af1d2e3b5a6f78901234567890abcd" },
+              trace_id: {
+                type: "string",
+                example: "c4af1d2e3b5a6f78901234567890abcd",
+              },
               labels: {
                 type: "object",
                 additionalProperties: {
@@ -78,7 +85,10 @@ export class TraceController {
                     { type: "boolean" },
                   ],
                 },
-                example: { http_method: "POST", db_statement: "UPDATE payments" },
+                example: {
+                  http_method: "POST",
+                  db_statement: "UPDATE payments",
+                },
               },
               http_method: { type: "string", example: "POST" },
               http_path: { type: "string", example: "/payments/confirm" },
@@ -103,7 +113,10 @@ export class TraceController {
               },
               service_name: { type: "string", example: "payment-service" },
               environment: { type: "string", example: "prod" },
-              trace_id: { type: "string", example: "c4af1d2e3b5a6f78901234567890abcd" },
+              trace_id: {
+                type: "string",
+                example: "c4af1d2e3b5a6f78901234567890abcd",
+              },
               span_id: { type: "string", example: "84c2f4e5a6b7c8d9" },
               labels: {
                 type: "object",

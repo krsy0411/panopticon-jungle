@@ -54,12 +54,7 @@ export class ServiceTraceQueryDto {
   size?: number;
 
   @IsOptional()
-  @IsIn([
-    "duration_desc",
-    "duration_asc",
-    "start_time_desc",
-    "start_time_asc",
-  ])
+  @IsIn(["duration_desc", "duration_asc", "start_time_desc", "start_time_asc"])
   sort?:
     | "duration_desc"
     | "duration_asc"

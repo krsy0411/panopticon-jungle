@@ -1,4 +1,12 @@
-import { IsISO8601, IsIn, IsInt, IsOptional, IsPositive, IsString, Min } from "class-validator";
+import {
+  IsISO8601,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Min,
+} from "class-validator";
 
 export class ServiceOverviewQueryDto {
   @IsOptional()

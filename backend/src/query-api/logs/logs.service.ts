@@ -42,9 +42,7 @@ export class LogSearchService {
     };
   }
 
-  private toLogItem(
-    document: ApmSearchResult<LogDocument>,
-  ): LogItemDto {
+  private toLogItem(document: ApmSearchResult<LogDocument>): LogItemDto {
     return {
       timestamp: document["@timestamp"],
       level: document.level,

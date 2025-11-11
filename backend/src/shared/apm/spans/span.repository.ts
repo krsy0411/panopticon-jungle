@@ -276,7 +276,9 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
         bool: {
           filter: [
             this.buildTimeRangeFilter(params.from, params.to),
-            ...(params.environment ? [{ term: { environment: params.environment } }] : []),
+            ...(params.environment
+              ? [{ term: { environment: params.environment } }]
+              : []),
           ],
         },
       },
@@ -506,7 +508,7 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     const total =
       typeof response.hits.total === "number"
         ? response.hits.total
-        : response.hits.total?.value ?? 0;
+        : (response.hits.total?.value ?? 0);
 
     return {
       total,
@@ -575,7 +577,7 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     const total =
       typeof response.hits.total === "number"
         ? response.hits.total
-        : response.hits.total?.value ?? 0;
+        : (response.hits.total?.value ?? 0);
 
     return {
       total,

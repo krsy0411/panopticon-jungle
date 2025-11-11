@@ -61,9 +61,7 @@ export class SpanSearchService {
     }
   }
 
-  private toSpanItem(
-    document: ApmSearchResult<SpanDocument>,
-  ): SpanItemDto {
+  private toSpanItem(document: ApmSearchResult<SpanDocument>): SpanItemDto {
     return {
       timestamp: document["@timestamp"],
       span_id: document.span_id,

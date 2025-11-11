@@ -105,7 +105,10 @@ export class ServiceTraceController {
           items: {
             type: "object",
             properties: {
-              trace_id: { type: "string", example: "c4af1d2e3b5a6f78901234567890abcd" },
+              trace_id: {
+                type: "string",
+                example: "c4af1d2e3b5a6f78901234567890abcd",
+              },
               root_span_name: {
                 type: "string",
                 example: "POST /payments/confirm",

@@ -3,9 +3,9 @@ export interface SpanItemDto {
   span_id: string;
   parent_span_id?: string | null;
   name: string;
-  kind: "SERVER" | "CLIENT" | "INTERNAL" | string;
+  kind: "SERVER" | "CLIENT" | "PRODUCER" | "CONSUMER" | "INTERNAL";
   duration_ms: number;
-  status: "OK" | "ERROR" | string;
+  status: "OK" | "ERROR" | "UNSET";
   service_name: string;
   environment: string;
   trace_id?: string;
@@ -17,7 +17,7 @@ export interface SpanItemDto {
 
 export interface LogItemDto {
   timestamp: string;
-  level: "DEBUG" | "INFO" | "WARN" | "ERROR" | string;
+  level: "TRACE" | "DEBUG" | "INFO" | "WARN" | "ERROR" | "FATAL";
   message: string;
   service_name: string;
   environment: string;

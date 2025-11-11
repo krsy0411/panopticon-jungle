@@ -54,7 +54,7 @@ export class ServiceOverviewService {
   ): ServiceSummaryDto[] {
     return [...items].sort((a, b) => {
       const key = sortBy;
-      return (b[key] as number) - (a[key] as number);
+      return b[key] - a[key];
     });
   }
 }

@@ -75,5 +75,9 @@ export class SpanSearchQueryDto {
 
   @IsOptional()
   @IsIn(["duration_asc", "duration_desc", "start_time_asc", "start_time_desc"])
-  sort?: "duration_asc" | "duration_desc" | "start_time_asc" | "start_time_desc";
+  sort?:
+    | "duration_asc"
+    | "duration_desc"
+    | "start_time_asc"
+    | "start_time_desc";
 }

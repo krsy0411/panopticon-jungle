@@ -55,8 +55,6 @@ export class EndpointMetricsService {
     items: EndpointMetricsItemDto[],
     sortBy: "request_count" | "latency_p95_ms" | "error_rate",
   ): EndpointMetricsItemDto[] {
-    return [...items].sort(
-      (a, b) => (b[sortBy] as number) - (a[sortBy] as number),
-    );
+    return [...items].sort((a, b) => b[sortBy] - a[sortBy]);
   }
 }
