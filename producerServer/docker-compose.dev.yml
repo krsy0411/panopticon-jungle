@@ -17,11 +17,10 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
 
       # --- 스토리지 초기화(클러스터 ID) ---
-      # 22자 base64 유사 형태 필요. 임의 문자열 예시:
       KAFKA_CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
 
-      # --- 편의 설정 ---
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # --- 토픽 설정 ---
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"  # 수동 토픽 생성
       KAFKA_LOG_DIRS: /var/lib/kafka/data
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1

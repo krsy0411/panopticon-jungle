@@ -4,9 +4,6 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { KafkaModule } from './kafka/kafka.module';
 import { S3Module } from './s3/s3.module';
-import { OpenSearchModule } from './opensearch/opensearch.module';
-import { RdbModule } from './rdb/rdb.module';
-import { TsdbModule } from './tsdb/tsdb.module';
 
 @Module({
   imports: [
@@ -20,11 +17,8 @@ import { TsdbModule } from './tsdb/tsdb.module';
           : '.env.development', // 로컬 개발: .env.development 사용
       ignoreEnvFile: process.env.NODE_ENV === 'production', // 배포 시 .env 파일 무시
     }),
-    // KafkaModule, // 임시 비활성화
+    KafkaModule,
     S3Module,
-    OpenSearchModule,
-    RdbModule,
-    TsdbModule,
   ],
   controllers: [AppController],
   providers: [AppService],
