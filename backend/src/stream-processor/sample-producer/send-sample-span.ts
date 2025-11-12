@@ -34,7 +34,7 @@ async function main(): Promise<void> {
     parent_span_id: null,
     name: "GET /api/sample",
     kind: "SERVER",
-    duration_ms: 48.5,
+    duration_ms: 50.5,
     status: "OK",
     http_method: "GET",
     http_path: "/api/sample",
