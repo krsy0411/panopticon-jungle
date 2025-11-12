@@ -16,6 +16,7 @@
     "start:debug": "node --inspect -r tsconfig-paths/register -r ts-node/register src/query-api/main.ts",
     "start:prod": "node dist/query-api/main.js",
     "start:query-api": "ts-node -r tsconfig-paths/register src/query-api/main.ts",
+    "start:query-api:watch": "ts-node --watch --transpile-only -r tsconfig-paths/register src/query-api/main.ts",
     "start:stream-processor": "ts-node -r tsconfig-paths/register src/stream-processor/main.ts",
     "start:stream-processor:prod": "node dist/stream-processor/main.js",
     "test:sample:log": "ts-node -r tsconfig-paths/register src/stream-processor/sample-producer/send-sample-log.ts",

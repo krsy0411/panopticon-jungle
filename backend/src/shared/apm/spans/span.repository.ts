@@ -390,7 +390,7 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       aggs: {
         endpoints: {
           terms: {
-            field: "name.keyword",
+            field: "name",
             size: params.limit,
           },
           aggs: {
