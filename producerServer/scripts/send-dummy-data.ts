@@ -3,15 +3,16 @@
  * 11월 12일 00:00 ~ 15:00 시간대의 랜덤 데이터 생성
  */
 
-const API_BASE_URL = 'YOUR_API_URL_HERE'; // 여기에 배포된 서버 URL 입력
+const API_BASE_URL =
+  'http://panopticon-alb-2099783513.ap-northeast-2.elb.amazonaws.com/producer'; // 여기에 배포된 서버 URL 입력
 
 // 설정
 const CONFIG = {
   START_TIME: new Date('2025-11-12T00:00:00+09:00'),
   END_TIME: new Date('2025-11-12T15:00:00+09:00'),
-  TOTAL_SPANS: 500, // 생성할 span 개수
-  TOTAL_LOGS: 800, // 생성할 log 개수
-  BATCH_SIZE: 50, // 한 번에 보낼 개수
+  TOTAL_SPANS: 100, // 생성할 span 개수
+  TOTAL_LOGS: 0, // 생성할 log 개수
+  BATCH_SIZE: 5, // 한 번에 보낼 개수
   DELAY_MS: 100, // 배치 간 딜레이 (ms)
 };
 
@@ -57,7 +58,7 @@ const SPAN_NAMES = [
   'Payment Processing',
 ];
 
-const SPAN_KINDS = ['SERVER', 'CLIENT', 'INTERNAL', 'PRODUCER', 'CONSUMER'];
+const SPAN_KINDS = ['SERVER', 'CLIENT', 'INTERNAL'];
 
 const LOG_LEVELS = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
 
@@ -125,6 +126,10 @@ function generateSpan(): any {
   const timestamp = randomTimestamp(CONFIG.START_TIME, CONFIG.END_TIME);
   const hasParent = Math.random() > 0.3;
 
+  const spanName = randomElement(SPAN_NAMES);
+  const httpMethod = randomElement(HTTP_METHODS);
+  const httpPath = randomElement(API_ENDPOINTS);
+
   const span: any = {
     type: 'span',
     timestamp,
@@ -133,7 +138,7 @@ function generateSpan(): any {
     trace_id: traceId,
     span_id: spanId,
     parent_span_id: hasParent ? generateSpanId() : null,
-    name: `${randomElement(HTTP_METHODS)} ${randomElement(API_ENDPOINTS)}`,
+    name: spanName.includes('HTTP') ? `${httpMethod} ${httpPath}` : spanName,
     kind: randomElement(SPAN_KINDS),
     duration_ms: randomFloat(1, 500, 2),
     status: Math.random() > 0.9 ? 'ERROR' : 'OK',
@@ -247,19 +252,19 @@ async function main() {
   console.log();
 
   try {
-    // Span 데이터 전송
-    console.log('📊 Sending span data...');
-    await sendInBatches('/traces', generateSpan, CONFIG.TOTAL_SPANS);
-    console.log();
-
     // Log 데이터 전송
     console.log('📝 Sending log data...');
     await sendInBatches('/logs', generateLog, CONFIG.TOTAL_LOGS);
     console.log();
 
+    // Span 데이터 전송
+    console.log('📊 Sending span data...');
+    await sendInBatches('/traces', generateSpan, CONFIG.TOTAL_SPANS);
+    console.log();
+
     console.log('✅ All data sent successfully!');
     console.log(
-      `\nSummary: ${CONFIG.TOTAL_SPANS} spans + ${CONFIG.TOTAL_LOGS} logs = ${CONFIG.TOTAL_SPANS + CONFIG.TOTAL_LOGS} total records`,
+      `\nSummary: ${CONFIG.TOTAL_LOGS} logs + ${CONFIG.TOTAL_SPANS} spans = ${CONFIG.TOTAL_LOGS + CONFIG.TOTAL_SPANS} total records`,
     );
   } catch (error) {
     console.error('❌ Error during execution:', error);

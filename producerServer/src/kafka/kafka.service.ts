@@ -119,7 +119,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       this.logger.log('Kafka Producer connected successfully');
 
       // 토픽 생성 (로컬 테스트용)
-      await this.createTopics();
+      // await this.createTopics();
     } catch (error) {
       this.logger.error('Failed to connect Kafka Producer', error);
       throw error;
@@ -207,7 +207,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       value: JSON.stringify(span),
     }));
 
-    return this.sendMessage('trace', messages);
+    return this.sendMessage('span', messages);
   }
 
   /**
@@ -222,20 +222,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       value: JSON.stringify(trace),
     }));
 
-    return this.sendMessage('trace', messages);
-  }
-
-  /**
-   * Metric 데이터 전송 (파티션 키: pod_id)
-   */
-  async sendMetrics(metricData: any | any[]) {
-    const metrics = Array.isArray(metricData) ? metricData : [metricData];
-    const messages = metrics.map((metric) => ({
-      key: metric.pod_id || 'unknown', // 파티션 키: pod_id
-      value: JSON.stringify(metric),
-    }));
-
-    return this.sendMessage('metric', messages);
+    return this.sendMessage('span', messages);
   }
 
   isProducerConnected(): boolean {
