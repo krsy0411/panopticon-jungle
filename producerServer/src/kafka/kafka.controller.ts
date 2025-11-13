@@ -16,18 +16,17 @@ export class KafkaController {
 
   constructor(private readonly kafkaService: KafkaService) {}
 
-  @Post('logs')
+  @Post('logs/v1/traces')
   @HttpCode(HttpStatus.ACCEPTED)
   async ingestLogs(@Body() data: any, @Req() req: any) {
     try {
-      const logsToSend = req.rawBody
-        ? [ProtobufDecoder.processProtobuf(req.rawBody, 'metric')]
+      const tracesToSend = req.rawBody
+        ? [ProtobufDecoder.processProtobuf(req.rawBody, 'trace')]
         : Array.isArray(data)
           ? data
           : [data];
-
-      await this.kafkaService.sendLogs(logsToSend);
-      this.logger.log(`Ingested ${logsToSend.length} log(s)`);
+      // await this.kafkaService.sendSpans(tracesToSend);
+      this.logger.log(JSON.stringify(tracesToSend, null, 2));
     } catch (error) {
       this.logger.error('Failed to ingest logs', error);
       throw error;

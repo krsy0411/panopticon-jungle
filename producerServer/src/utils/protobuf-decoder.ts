@@ -1,41 +1,42 @@
 import { gunzipSync } from 'zlib';
+import * as root from '@opentelemetry/otlp-transformer/build/esm/generated/root';
 
 /**
  * Protobuf 데이터 처리 유틸리티
- * OpenTelemetry Protobuf 압축 해제 및 base64 인코딩
+ * OpenTelemetry Protobuf 디코딩 및 JSON 변환
  */
 export class ProtobufDecoder {
   /**
-   * Protobuf 데이터를 압축 해제하고 JSON 형태로 반환
+   * Protobuf 데이터를 디코딩하고 JSON으로 변환
    */
-  static processProtobuf(
-    buffer: Buffer,
-    dataType: 'trace' | 'metric',
-  ): {
-    type: 'protobuf';
-    dataType: 'trace' | 'metric';
-    encoding: 'base64';
-    data: string;
-    size: number;
-    decompressedSize?: number;
-    timestamp: string;
-  } {
-    let processedBuffer = buffer;
-
-    // gzip 압축 해제
+  static processProtobuf(buffer: Buffer, dataType: 'trace' | 'metric'): any {
+    let decodedBuffer = buffer;
     if (this.isGzipped(buffer)) {
-      processedBuffer = gunzipSync(buffer);
+      decodedBuffer = gunzipSync(buffer);
     }
+    // Protobuf 디코딩
+    try {
+      if (dataType === 'trace') {
+        // ExportTraceServiceRequest 디코딩
+        const ExportTraceServiceRequest = (root as any).opentelemetry.proto
+          .collector.trace.v1.ExportTraceServiceRequest;
+        const decoded = ExportTraceServiceRequest.decode(decodedBuffer);
+        const json = decoded.toJSON();
 
-    return {
-      type: 'protobuf',
-      dataType,
-      encoding: 'base64',
-      data: processedBuffer.toString('base64'),
-      size: buffer.length,
-      decompressedSize: processedBuffer.length,
-      timestamp: new Date().toISOString(),
-    };
+        return json;
+      } else {
+        // ExportMetricsServiceRequest 디코딩
+        const ExportMetricsServiceRequest = (root as any).opentelemetry.proto
+          .collector.metrics.v1.ExportMetricsServiceRequest;
+        const decoded = ExportMetricsServiceRequest.decode(decodedBuffer);
+        const json = decoded.toJSON();
+
+        return json;
+      }
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      throw error;
+    }
   }
 
   /**
