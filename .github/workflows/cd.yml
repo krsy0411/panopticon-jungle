@@ -3,7 +3,7 @@ name: CD - Build & Deploy
 on:
   push:
     branches:
-      # - feature/로그추가개발
+      - feature/add-p50-90
       # - main
   workflow_dispatch:
 

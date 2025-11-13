@@ -388,7 +388,7 @@ export interface TraceResponse {
 
 #### 3.2.2 `/services/{serviceName}/metrics` – 메트릭 집계
 
-메트릭은 개별 이벤트에서 파생된다. Query‑API는 Elasticsearch aggregation을 사용해 QPS, p95 latency, error rate 등을 계산하여 아래 구조로 반환한다.
+메트릭은 개별 이벤트에서 파생된다. Query‑API는 Elasticsearch aggregation을 사용해 QPS, p95/p90/p50 latency, error rate 등을 계산하여 아래 구조로 반환한다.
 
 ```ts
 export interface MetricPoint {
@@ -398,14 +398,14 @@ export interface MetricPoint {
 }
 
 export interface MetricResponse {
-  metric_name: string;     // ex: "http_requests_total", "latency_p95_ms", "error_rate"
+  metric_name: string;     // ex: "http_requests_total", "latency_p95_ms", "latency_p90_ms", "latency_p50_ms", "error_rate"
   service_name: string;
   environment: string;
   points: MetricPoint[];
 }
 ```
 
-예를 들어 QPS를 계산할 때 Query‑API는 `kind=SERVER` 스팬을 1분 버킷으로 집계하여 `http_requests_total` 값을 반환한다. p95 latency는 `duration_ms`에 대해 `percentiles` 집계를 수행하고, 에러율은 `status='ERROR'` 스팬 비율로 계산한다. 메트릭 라벨(`labels`)은 HTTP 메서드나 엔드포인트 등 저카디널리티 필터에만 사용한다.
+예를 들어 QPS를 계산할 때 Query‑API는 `kind=SERVER` 스팬을 1분 버킷으로 집계하여 `http_requests_total` 값을 반환한다. latency는 `duration_ms`에 대해 단일 `percentiles` 집계를 수행하면서 p95/p90/p50 값을 동시에 계산하고, 에러율은 `status='ERROR'` 스팬 비율로 계산한다. 메트릭 라벨(`labels`)은 HTTP 메서드나 엔드포인트 등 저카디널리티 필터에만 사용한다.
 
 ## 4 요약 및 개발 지침
 
