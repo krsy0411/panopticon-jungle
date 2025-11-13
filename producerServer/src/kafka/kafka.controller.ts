@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { KafkaService } from './kafka.service';
 import { ProtobufDecoder } from '../utils/protobuf-decoder';
+import { SpanTransformer } from '../utils/span-transformer';
 
 @Controller()
 export class KafkaController {
@@ -20,13 +21,19 @@ export class KafkaController {
   @HttpCode(HttpStatus.ACCEPTED)
   async ingestLogs(@Body() data: any, @Req() req: any) {
     try {
-      const tracesToSend = req.rawBody
-        ? [ProtobufDecoder.processProtobuf(req.rawBody, 'trace')]
-        : Array.isArray(data)
-          ? data
-          : [data];
-      // await this.kafkaService.sendSpans(tracesToSend);
-      this.logger.log(JSON.stringify(tracesToSend, null, 2));
+      let spans: any[];
+
+      if (req.rawBody) {
+        // Protobuf 디코딩 json형태로 반환
+        const decodedTrace = ProtobufDecoder.processProtobuf(req.rawBody);
+        // 간소화된 span으로 변환
+        spans = SpanTransformer.transformTraceData(decodedTrace);
+      } else {
+        spans = Array.isArray(data) ? data : [data];
+      }
+
+      await this.kafkaService.sendSpans(spans);
+      this.logger.log(`Sent ${spans.length} span(s) to Kafka`);
     } catch (error) {
       this.logger.error('Failed to ingest logs', error);
       throw error;
@@ -50,22 +57,4 @@ export class KafkaController {
   //     throw error;
   //   }
   // }
-
-  @Post('traces')
-  @HttpCode(HttpStatus.ACCEPTED)
-  async ingestTraces(@Body() data: any, @Req() req: any) {
-    try {
-      const tracesToSend = req.rawBody
-        ? [ProtobufDecoder.processProtobuf(req.rawBody, 'trace')]
-        : Array.isArray(data)
-          ? data
-          : [data];
-
-      await this.kafkaService.sendSpans(tracesToSend);
-      this.logger.log(`Ingested ${tracesToSend.length} trace(s)`);
-    } catch (error) {
-      this.logger.error('Failed to ingest traces', error);
-      throw error;
-    }
-  }
 }

@@ -9,30 +9,20 @@ export class ProtobufDecoder {
   /**
    * Protobuf 데이터를 디코딩하고 JSON으로 변환
    */
-  static processProtobuf(buffer: Buffer, dataType: 'trace' | 'metric'): any {
+  static processProtobuf(buffer: Buffer): any {
     let decodedBuffer = buffer;
     if (this.isGzipped(buffer)) {
       decodedBuffer = gunzipSync(buffer);
     }
     // Protobuf 디코딩
     try {
-      if (dataType === 'trace') {
-        // ExportTraceServiceRequest 디코딩
-        const ExportTraceServiceRequest = (root as any).opentelemetry.proto
-          .collector.trace.v1.ExportTraceServiceRequest;
-        const decoded = ExportTraceServiceRequest.decode(decodedBuffer);
-        const json = decoded.toJSON();
+      // ExportTraceServiceRequest 디코딩
+      const ExportTraceServiceRequest = (root as any).opentelemetry.proto
+        .collector.trace.v1.ExportTraceServiceRequest;
+      const decoded = ExportTraceServiceRequest.decode(decodedBuffer);
+      const json = decoded.toJSON();
 
-        return json;
-      } else {
-        // ExportMetricsServiceRequest 디코딩
-        const ExportMetricsServiceRequest = (root as any).opentelemetry.proto
-          .collector.metrics.v1.ExportMetricsServiceRequest;
-        const decoded = ExportMetricsServiceRequest.decode(decodedBuffer);
-        const json = decoded.toJSON();
-
-        return json;
-      }
+      return json;
     } catch (error) {
       console.error(error instanceof Error ? error.message : String(error));
       throw error;
