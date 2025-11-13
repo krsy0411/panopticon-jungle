@@ -285,13 +285,13 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       aggs: {
         services: {
           terms: {
-            field: "service_name.keyword",
+            field: "service_name",
             size: params.limit,
           },
           aggs: {
             envs: {
               terms: {
-                field: "environment.keyword",
+                field: "environment",
                 size: 5,
               },
               aggs: {
@@ -390,7 +390,7 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       aggs: {
         endpoints: {
           terms: {
-            field: "name.keyword",
+            field: "name",
             size: params.limit,
           },
           aggs: {
