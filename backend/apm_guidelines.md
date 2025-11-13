@@ -119,6 +119,13 @@ MVP 단계에서는 기본 ILM 정책을 사용해 저장 비용을 관리합니
 * **컨텍스트 전파** – Kafka 메시지 헤더에 `traceparent` 값을 포함하여 컨슈머가 부모 스팬을 연결할 수 있도록 합니다【701703879168268†L137-L152】. OTel JS SDK는 이를 자동으로 처리합니다. 수집기(Collector)는 Jaeger, OTLP exporter 등을 통해 트레이스를 수집합니다.
 * **메트릭 수집** – 필요 시 `@opentelemetry/api-metrics`를 사용해 HTTP 지연 시간, 카프카 큐 길이 등의 메트릭을 기록합니다. 그러나 MVP에서는 기본 지표만 수집해도 충분합니다.
 
+### 3.7 Error Stream 서버 (Kafka → WebSocket)
+
+* **역할** – `apm.logs.error` 토픽을 구독하여 `ERROR_STREAM_WS_PATH`(기본 `/ws/error-logs`) 엔드포인트로 접속한 NEXT.js 프런트엔드에 실시간으로 push 합니다.
+* **Kafka 설정** – `ERROR_STREAM_KAFKA_CLIENT_ID`, `ERROR_STREAM_KAFKA_GROUP_ID`, `KAFKA_APM_LOG_ERROR_TOPIC`(기본 `apm.logs.error`) 환경 변수를 통해 MSK 접속 정보를 분리합니다. 기존 `KAFKA_*` 보안 설정(SSL/SASL)은 `shared/common/kafka` 모듈을 그대로 사용합니다.
+* **WebSocket 보안** – `ERROR_STREAM_WS_ORIGINS`에 허용 오리진을 콤마로 지정합니다. 설정이 비어 있으면 로컬 개발 편의를 위해 모든 오리진에서 연결할 수 있도록 설정됩니다.
+* **배포** – Query‑API, Stream Processor와 동일하게 독립 Docker 타깃(`error-stream`)과 ECR/ECS 태스크 정의를 사용합니다. 포트는 `ERROR_STREAM_PORT`(기본 3010)으로 노출합니다.
+
 ## 4. ChatGPT 지침 (웹 인터페이스)
 
 1. **정확한 정보 제공** – 사용자 질문에 답할 때, 지식 컷오프 이후의 정보나 시간에 민감한 내용이 나오면 먼저 검색 도구를 이용해 최신 자료를 찾아 인용합니다. 카프카, Elastic, OTel 버전 업데이트 등은 최신 정보를 확인해야 합니다.

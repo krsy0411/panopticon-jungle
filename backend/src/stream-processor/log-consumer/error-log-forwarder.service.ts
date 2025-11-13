@@ -39,7 +39,7 @@ export class ErrorLogForwarderService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.producer.connect();
       this.logger.log(
-        `Error log forwarder connected (topic=${this.topic}, clientId=${this.clientId})`,
+        `ERROR 로그 포워더가 Kafka에 연결되었습니다. topic=${this.topic} clientId=${this.clientId}`,
       );
     } catch (error) {
       this.logger.error(

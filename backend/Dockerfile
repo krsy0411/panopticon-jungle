@@ -12,6 +12,9 @@ RUN npm run build:query-api
 FROM base AS build-stream
 RUN npm run build:stream-processor
 
+FROM base AS build-error
+RUN npm run build:error-stream
+
 FROM node:20-alpine AS runtime-base
 WORKDIR /app
 ENV NODE_ENV=production
@@ -27,3 +30,8 @@ CMD ["node", "dist/query-api/main"]
 FROM runtime-base AS stream-processor
 COPY --from=build-stream /app/dist/stream-processor ./dist
 CMD ["node", "dist/stream-processor/main"]
+
+FROM runtime-base AS error-stream
+COPY --from=build-error /app/dist/error-stream ./dist
+EXPOSE 3010
+CMD ["node", "dist/error-stream/main"]

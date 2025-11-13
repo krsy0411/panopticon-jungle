@@ -20,6 +20,11 @@ env:
   STREAM_CONTAINER_NAME: ${{ secrets.STREAM_CONTAINER_NAME }}
   QUERY_TASK_DEFINITION: ${{ secrets.QUERY_TASK_DEFINITION }}
   QUERY_CONTAINER_NAME: ${{ secrets.QUERY_CONTAINER_NAME }}
+  ERROR_STREAM_ECR_REPOSITORY: ${{ secrets.ERROR_STREAM_ECR_REPOSITORY }}
+  ERROR_STREAM_ECS_CLUSTER: ${{ secrets.ERROR_STREAM_ECS_CLUSTER }}
+  ERROR_STREAM_ECS_SERVICE: ${{ secrets.ERROR_STREAM_ECS_SERVICE }}
+  ERROR_STREAM_TASK_DEFINITION: ${{ secrets.ERROR_STREAM_TASK_DEFINITION }}
+  ERROR_STREAM_CONTAINER_NAME: ${{ secrets.ERROR_STREAM_CONTAINER_NAME }}
 
 jobs:
   detect:
@@ -28,6 +33,7 @@ jobs:
     outputs:
       query_api: ${{ steps.filter.outputs.query_api }}
       stream_processor: ${{ steps.filter.outputs.stream_processor }}
+      error_stream: ${{ steps.filter.outputs.error_stream }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -45,6 +51,12 @@ jobs:
               - 'backend/Dockerfile'
             stream_processor:
               - 'backend/src/stream-processor/**'
+              - 'backend/src/shared/**'
+              - 'backend/package.json'
+              - 'backend/package-lock.json'
+              - 'backend/Dockerfile'
+            error_stream:
+              - 'backend/src/error-stream/**'
               - 'backend/src/shared/**'
               - 'backend/package.json'
               - 'backend/package-lock.json'
@@ -162,4 +174,61 @@ jobs:
             --cluster "$STREAM_ECS_CLUSTER" \
             --service "$STREAM_ECS_SERVICE" \
             --task-definition "$STREAM_TASK_DEF_ARN" \
+            --force-new-deployment
+
+  deploy-error-stream:
+    name: Build & deploy error stream
+    needs: detect
+    if: needs.detect.outputs.error_stream == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "${ECR_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+      - name: Build Docker image
+        working-directory: backend
+        env:
+          IMAGE_NAME: panopticon-error-stream
+        run: |
+          docker build -f Dockerfile --target error-stream -t "$IMAGE_NAME:${GITHUB_SHA}" .
+
+      - name: Push image to ECR
+        env:
+          IMAGE_NAME: panopticon-error-stream
+        run: |
+          ECR_URI="${ECR_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ERROR_STREAM_ECR_REPOSITORY}"
+          docker tag "$IMAGE_NAME:${GITHUB_SHA}" "${ECR_URI}:${GITHUB_SHA}"
+          docker tag "$IMAGE_NAME:${GITHUB_SHA}" "${ECR_URI}:latest"
+          docker push "${ECR_URI}:${GITHUB_SHA}"
+          docker push "${ECR_URI}:latest"
+          echo "ERROR_STREAM_ECR_URI=${ECR_URI}" >> $GITHUB_ENV
+
+      - name: Register new task definition revision
+        run: |
+          aws ecs describe-task-definition --task-definition "$ERROR_STREAM_TASK_DEFINITION" --query 'taskDefinition' --output json > task-def.json
+          IMAGE="${{ env.ERROR_STREAM_ECR_URI }}:${GITHUB_SHA}"
+          cat task-def.json | jq --arg IMAGE "$IMAGE" --arg NAME "$ERROR_STREAM_CONTAINER_NAME" '
+            .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .registeredAt, .registeredBy, .compatibilities)
+          ' > new-task-def.json
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "ERROR_STREAM_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
+
+      - name: Trigger ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster "$ERROR_STREAM_ECS_CLUSTER" \
+            --service "$ERROR_STREAM_ECS_SERVICE" \
+            --task-definition "$ERROR_STREAM_TASK_DEF_ARN" \
             --force-new-deployment
