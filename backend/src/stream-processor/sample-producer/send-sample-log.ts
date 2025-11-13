@@ -29,7 +29,7 @@ async function main(): Promise<void> {
     timestamp: new Date().toISOString(),
     service_name: serviceName,
     environment,
-    level: "INFO",
+    level: "ERROR",
     message: "샘플 APM 로그 이벤트",
     trace_id: traceId,
     span_id: spanId,

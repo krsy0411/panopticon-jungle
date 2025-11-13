@@ -3,7 +3,7 @@ name: CD - Build & Deploy
 on:
   push:
     branches:
-      - feature/add-p50-90
+      - feature/error-live
       # - main
   workflow_dispatch:
 
