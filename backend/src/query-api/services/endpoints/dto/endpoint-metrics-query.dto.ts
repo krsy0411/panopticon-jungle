@@ -1,3 +1,4 @@
+import { Type } from "class-transformer";
 import {
   IsIn,
   IsISO8601,
@@ -37,5 +38,6 @@ export class EndpointMetricsQueryDto {
   @IsInt()
   @IsPositive()
   @Min(1)
+  @Type(() => Number)
   limit?: number;
 }
