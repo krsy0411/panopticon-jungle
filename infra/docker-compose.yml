@@ -26,20 +26,20 @@ services:
     restart: unless-stopped
 
   # TimescaleDB - 메트릭 저장소 (PostgreSQL 기반)
-  timescaledb:
-    image: timescale/timescaledb:latest-pg16
-    container_name: panopticon-timescaledb
-    environment:
-      POSTGRES_DB: panopticon
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
-    ports:
-      - "5433:5432"
-    volumes:
-      - timescale-data:/var/lib/postgresql/data
-    networks:
-      - panopticon-network
-    restart: unless-stopped
+  # timescaledb:
+  #   image: timescale/timescaledb:latest-pg16
+  #   container_name: panopticon-timescaledb
+  #   environment:
+  #     POSTGRES_DB: panopticon
+  #     POSTGRES_USER: admin
+  #     POSTGRES_PASSWORD: admin123
+  #   ports:
+  #     - "5433:5432"
+  #   volumes:
+  #     - timescale-data:/var/lib/postgresql/data
+  #   networks:
+  #     - panopticon-network
+  #   restart: unless-stopped
 
   # Elasticsearch - 로그 저장소
   elasticsearch:
@@ -89,67 +89,67 @@ services:
     command: redis-server --appendonly yes
 
   # Query API (NestJS HTTP server)
-  query-api:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
-      target: query-api
-    image: panopticon-query-api:local
-    container_name: panopticon-query-api
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      KAFKA_BROKERS: kafka:9092
-      KAFKA_APP_LOG_TOPIC: logs.app
-      KAFKA_HTTP_LOG_TOPIC: logs.http
-      KAFKA_SYSTEM_METRICS_TOPIC: logs.metric
-      ELASTICSEARCH_NODE: http://elasticsearch:9200
-      TIMESCALE_HOST: timescaledb
-      TIMESCALE_PORT: "5432"
-      TIMESCALE_DATABASE: panopticon
-      TIMESCALE_USER: admin
-      TIMESCALE_PASSWORD: admin123
-    depends_on:
-      - kafka
-      - elasticsearch
-      - timescaledb
-    ports:
-      - "3001:3001"
-    networks:
-      - panopticon-network
-    restart: unless-stopped
+  # query-api:
+  #   build:
+  #     context: ../backend
+  #     dockerfile: Dockerfile
+  #     target: query-api
+  #   image: panopticon-query-api:local
+  #   container_name: panopticon-query-api
+  #   environment:
+  #     NODE_ENV: production
+  #     PORT: 3001
+  #     KAFKA_BROKERS: kafka:9092
+  #     KAFKA_APP_LOG_TOPIC: logs.app
+  #     KAFKA_HTTP_LOG_TOPIC: logs.http
+  #     KAFKA_SYSTEM_METRICS_TOPIC: logs.metric
+  #     ELASTICSEARCH_NODE: http://elasticsearch:9200
+  #     TIMESCALE_HOST: timescaledb
+  #     TIMESCALE_PORT: "5432"
+  #     TIMESCALE_DATABASE: panopticon
+  #     TIMESCALE_USER: admin
+  #     TIMESCALE_PASSWORD: admin123
+  #   depends_on:
+  #     - kafka
+  #     - elasticsearch
+  #     - timescaledb
+  #   ports:
+  #     - "3001:3001"
+  #   networks:
+  #     - panopticon-network
+  #   restart: unless-stopped
 
   # Stream processor (Kafka consumers)
-  stream-processor:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
-      target: stream-processor
-    image: panopticon-stream-processor:local
-    container_name: panopticon-stream-processor
-    environment:
-      NODE_ENV: production
-      KAFKA_BROKERS: kafka:9092
-      KAFKA_APP_LOG_TOPIC: logs.app
-      KAFKA_HTTP_LOG_TOPIC: logs.http
-      KAFKA_SYSTEM_METRICS_TOPIC: logs.metric
-      ELASTICSEARCH_NODE: http://elasticsearch:9200
-      TIMESCALE_HOST: timescaledb
-      TIMESCALE_PORT: "5432"
-      TIMESCALE_DATABASE: panopticon
-      TIMESCALE_USER: admin
-      TIMESCALE_PASSWORD: admin123
-    depends_on:
-      - kafka
-      - elasticsearch
-      - timescaledb
-    networks:
-      - panopticon-network
-    restart: unless-stopped
+  # stream-processor:
+  #   build:
+  #     context: ../backend
+  #     dockerfile: Dockerfile
+  #     target: stream-processor
+  #   image: panopticon-stream-processor:local
+  #   container_name: panopticon-stream-processor
+  #   environment:
+  #     NODE_ENV: production
+  #     KAFKA_BROKERS: kafka:9092
+  #     KAFKA_APP_LOG_TOPIC: logs.app
+  #     KAFKA_HTTP_LOG_TOPIC: logs.http
+  #     KAFKA_SYSTEM_METRICS_TOPIC: logs.metric
+  #     ELASTICSEARCH_NODE: http://elasticsearch:9200
+  #     TIMESCALE_HOST: timescaledb
+  #     TIMESCALE_PORT: "5432"
+  #     TIMESCALE_DATABASE: panopticon
+  #     TIMESCALE_USER: admin
+  #     TIMESCALE_PASSWORD: admin123
+  #   depends_on:
+  #     - kafka
+  #     - elasticsearch
+  #     - timescaledb
+  #   networks:
+  #     - panopticon-network
+  #   restart: unless-stopped
 
 volumes:
   kafka-data:
-  timescale-data:
+  # timescale-data:
   elasticsearch-data:
   redis-data:
 

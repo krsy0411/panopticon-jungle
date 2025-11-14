@@ -26,6 +26,8 @@ export interface ServiceMetricBucket {
   total: number;
   errorRate: number;
   p95Latency: number;
+  p90Latency: number;
+  p50Latency: number;
 }
 
 export interface ServiceOverviewParams {
@@ -225,7 +227,7 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
             latency: {
               percentiles: {
                 field: "duration_ms",
-                percents: [95],
+                percents: [50, 90, 95],
               },
             },
           },
@@ -253,12 +255,18 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       const errors = bucket.error_requests.doc_count ?? 0;
       const latencyValue =
         bucket.latency.values["95.0"] ?? bucket.latency.values["95"] ?? NaN;
+      const latencyP90 =
+        bucket.latency.values["90.0"] ?? bucket.latency.values["90"] ?? NaN;
+      const latencyP50 =
+        bucket.latency.values["50.0"] ?? bucket.latency.values["50"] ?? NaN;
 
       return {
         timestamp: bucket.key_as_string,
         total,
         errorRate: total > 0 ? errors / total : 0,
         p95Latency: Number.isFinite(latencyValue) ? latencyValue : 0,
+        p90Latency: Number.isFinite(latencyP90) ? latencyP90 : 0,
+        p50Latency: Number.isFinite(latencyP50) ? latencyP50 : 0,
       };
     });
   }
@@ -285,20 +293,20 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       aggs: {
         services: {
           terms: {
-            field: "service_name.keyword",
+            field: "service_name",
             size: params.limit,
           },
           aggs: {
             envs: {
               terms: {
-                field: "environment.keyword",
+                field: "environment",
                 size: 5,
               },
               aggs: {
                 latency: {
                   percentiles: {
                     field: "duration_ms",
-                    percents: [95],
+                    percents: [50, 90, 95],
                   },
                 },
                 error_requests: {
@@ -390,14 +398,14 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       aggs: {
         endpoints: {
           terms: {
-            field: "name.keyword",
+            field: "name",
             size: params.limit,
           },
           aggs: {
             latency: {
               percentiles: {
                 field: "duration_ms",
-                percents: [95],
+                percents: [50, 90, 95],
               },
             },
             error_requests: {

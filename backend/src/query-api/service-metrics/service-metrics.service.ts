@@ -69,9 +69,21 @@ export class ServiceMetricsService {
       labels: this.baseLabels(environment),
     }));
 
-    const latencyPoints = buckets.map((bucket) => ({
+    const latencyP95Points = buckets.map((bucket) => ({
       timestamp: bucket.timestamp,
       value: bucket.p95Latency,
+      labels: this.baseLabels(environment),
+    }));
+
+    const latencyP90Points = buckets.map((bucket) => ({
+      timestamp: bucket.timestamp,
+      value: bucket.p90Latency,
+      labels: this.baseLabels(environment),
+    }));
+
+    const latencyP50Points = buckets.map((bucket) => ({
+      timestamp: bucket.timestamp,
+      value: bucket.p50Latency,
       labels: this.baseLabels(environment),
     }));
 
@@ -92,7 +104,19 @@ export class ServiceMetricsService {
         metric_name: "latency_p95_ms",
         service_name: serviceName,
         environment: environment ?? "all",
-        points: latencyPoints,
+        points: latencyP95Points,
+      },
+      {
+        metric_name: "latency_p90_ms",
+        service_name: serviceName,
+        environment: environment ?? "all",
+        points: latencyP90Points,
+      },
+      {
+        metric_name: "latency_p50_ms",
+        service_name: serviceName,
+        environment: environment ?? "all",
+        points: latencyP50Points,
       },
       {
         metric_name: "error_rate",

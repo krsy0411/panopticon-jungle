@@ -14,8 +14,19 @@ export class ServiceMetricsQueryDto {
   environment?: string;
 
   @IsOptional()
-  @IsIn(["http_requests_total", "latency_p95_ms", "error_rate"])
-  metric?: "http_requests_total" | "latency_p95_ms" | "error_rate";
+  @IsIn([
+    "http_requests_total",
+    "latency_p95_ms",
+    "latency_p90_ms",
+    "latency_p50_ms",
+    "error_rate",
+  ])
+  metric?:
+    | "http_requests_total"
+    | "latency_p95_ms"
+    | "latency_p90_ms"
+    | "latency_p50_ms"
+    | "error_rate";
 
   @IsOptional()
   @IsISO8601()

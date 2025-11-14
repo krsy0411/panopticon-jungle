@@ -19,7 +19,7 @@ export class ServiceMetricsController {
   @ApiOperation({
     summary: "서비스 메트릭 시계열",
     description:
-      "단일 서비스의 요청 수, p95 지연 시간, 에러율을 시계열 데이터로 반환합니다. " +
+      "단일 서비스의 요청 수, p95/p90/p50 지연 시간, 에러율을 시계열 데이터로 반환합니다. " +
       "선택한 메트릭별로 동일한 API를 호출하면 차트 위젯을 구성할 수 있습니다.\n\n" +
       "**요청 예시**\n" +
       "`GET /services/order-service/metrics?metric=latency_p95_ms&environment=prod&from=2024-04-01T00:00:00Z&to=2024-04-01T03:00:00Z&interval=5m`",
@@ -39,7 +39,13 @@ export class ServiceMetricsController {
     name: "metric",
     required: false,
     description: "조회할 메트릭 (기본 http_requests_total)",
-    enum: ["http_requests_total", "latency_p95_ms", "error_rate"],
+    enum: [
+      "http_requests_total",
+      "latency_p95_ms",
+      "latency_p90_ms",
+      "latency_p50_ms",
+      "error_rate",
+    ],
     example: "latency_p95_ms",
   })
   @ApiQuery({
@@ -94,7 +100,7 @@ export class ServiceMetricsController {
                 labels: {
                   type: "object",
                   additionalProperties: { type: "string" },
-                  example: { percentile: "p95" },
+                  example: { environment: "prod" },
                 },
               },
             },
@@ -110,12 +116,36 @@ export class ServiceMetricsController {
             {
               timestamp: "2024-04-01T00:05:00.000Z",
               value: 285.6,
-              labels: { percentile: "p95" },
+              labels: { environment: "prod" },
             },
             {
               timestamp: "2024-04-01T00:10:00.000Z",
               value: 301.1,
-              labels: { percentile: "p95" },
+              labels: { environment: "prod" },
+            },
+          ],
+        },
+        {
+          metric_name: "latency_p90_ms",
+          service_name: "order-service",
+          environment: "prod",
+          points: [
+            {
+              timestamp: "2024-04-01T00:05:00.000Z",
+              value: 240.3,
+              labels: { environment: "prod" },
+            },
+          ],
+        },
+        {
+          metric_name: "latency_p50_ms",
+          service_name: "order-service",
+          environment: "prod",
+          points: [
+            {
+              timestamp: "2024-04-01T00:05:00.000Z",
+              value: 150.2,
+              labels: { environment: "prod" },
             },
           ],
         },
