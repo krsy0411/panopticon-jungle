@@ -2,7 +2,8 @@
 import process from "process";
 import { io } from "socket.io-client";
 
-const serverUrl = process.env.ERROR_STREAM_WS_URL ?? "ws://localhost:3010";
+// const serverUrl = process.env.ERROR_STREAM_WS_URL ?? "ws://localhost:3010";
+const serverUrl = process.env.ERROR_STREAM_WS_URL ?? "https://api.jungle-panopticon.cloud";
 const wsPath = process.env.ERROR_STREAM_WS_PATH ?? "/ws/error-logs";
 
 console.log(

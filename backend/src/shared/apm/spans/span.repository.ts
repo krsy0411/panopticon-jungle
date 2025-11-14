@@ -111,6 +111,30 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     super(storage, SpanRepository.STREAM_KEY);
   }
 
+  private normalizeEnvironmentFilter(environment?: string): string | undefined {
+    if (!environment) {
+      return undefined;
+    }
+    const trimmed = environment.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const key = trimmed.toLowerCase();
+    const alias: Record<string, string> = {
+      prod: "production",
+      production: "production",
+      dev: "development",
+      development: "development",
+      stage: "staging",
+      staging: "staging",
+      qa: "qa",
+      test: "test",
+    };
+
+    return alias[key] ?? trimmed;
+  }
+
   private buildTimeRangeFilter(from: string, to: string) {
     return {
       range: {
@@ -151,8 +175,9 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     if (params.serviceName) {
       filter.push({ term: { service_name: params.serviceName } });
     }
-    if (params.environment) {
-      filter.push({ term: { environment: params.environment } });
+    const normalizedEnv = this.normalizeEnvironmentFilter(params.environment);
+    if (normalizedEnv) {
+      filter.push({ term: { environment: normalizedEnv } });
     }
 
     const response = await this.client.search<SpanDocument>({
@@ -183,6 +208,9 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
   async aggregateServiceMetrics(
     params: ServiceMetricQuery,
   ): Promise<ServiceMetricBucket[]> {
+    const environmentFilter = this.normalizeEnvironmentFilter(
+      params.environment,
+    );
     const response = await this.client.search({
       index: this.dataStream,
       size: 0,
@@ -201,8 +229,8 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
                 },
               },
             },
-            ...(params.environment
-              ? [{ term: { environment: params.environment } }]
+            ...(environmentFilter
+              ? [{ term: { environment: environmentFilter } }]
               : []),
           ],
         },
@@ -277,6 +305,9 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
   async aggregateServiceOverview(
     params: ServiceOverviewParams,
   ): Promise<ServiceOverviewItem[]> {
+    const environmentFilter = this.normalizeEnvironmentFilter(
+      params.environment,
+    );
     const response = await this.client.search({
       index: this.dataStream,
       size: 0,
@@ -284,8 +315,8 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
         bool: {
           filter: [
             this.buildTimeRangeFilter(params.from, params.to),
-            ...(params.environment
-              ? [{ term: { environment: params.environment } }]
+            ...(environmentFilter
+              ? [{ term: { environment: environmentFilter } }]
               : []),
           ],
         },
@@ -378,6 +409,9 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
   async aggregateEndpointMetrics(
     params: EndpointMetricsParams,
   ): Promise<EndpointMetricsItem[]> {
+    const environmentFilter = this.normalizeEnvironmentFilter(
+      params.environment,
+    );
     const response = await this.client.search({
       index: this.dataStream,
       size: 0,
@@ -389,8 +423,8 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
           ],
           filter: [
             this.buildTimeRangeFilter(params.from, params.to),
-            ...(params.environment
-              ? [{ term: { environment: params.environment } }]
+            ...(environmentFilter
+              ? [{ term: { environment: environmentFilter } }]
               : []),
           ],
         },
@@ -441,7 +475,7 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       return {
         endpointName: bucket.key,
         serviceName: params.serviceName,
-        environment: params.environment ?? "all",
+        environment: environmentFilter ?? "all",
         requestCount: total,
         latencyP95: Number.isFinite(latencyValue) ? latencyValue : 0,
         errorRate: total > 0 ? errors / total : 0,
@@ -465,11 +499,10 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     params: SpanListQuery,
   ): Promise<SpanSearchResult<SpanDocument>> {
     const from = (params.page - 1) * params.size;
+    const normalizedEnv = this.normalizeEnvironmentFilter(params.environment);
     const filters: Array<Record<string, unknown>> = [
       this.buildTimeRangeFilter(params.from, params.to),
-      ...(params.environment
-        ? [{ term: { environment: params.environment } }]
-        : []),
+      ...(normalizedEnv ? [{ term: { environment: normalizedEnv } }] : []),
       ...(params.serviceName
         ? [{ term: { service_name: params.serviceName } }]
         : []),
@@ -531,6 +564,7 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     params: ServiceTraceSearchParams,
   ): Promise<SpanSearchResult<SpanDocument>> {
     const from = (params.page - 1) * params.size;
+    const normalizedEnv = this.normalizeEnvironmentFilter(params.environment);
     const filters: Array<Record<string, unknown>> = [
       { term: { service_name: params.serviceName } },
       { term: { kind: "SERVER" } },
@@ -538,8 +572,8 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       { bool: { must_not: [{ exists: { field: "parent_span_id" } }] } },
     ];
 
-    if (params.environment) {
-      filters.push({ term: { environment: params.environment } });
+    if (normalizedEnv) {
+      filters.push({ term: { environment: normalizedEnv } });
     }
     if (params.status) {
       filters.push({ term: { status: params.status } });
