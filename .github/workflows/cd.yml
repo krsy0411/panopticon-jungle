@@ -214,21 +214,21 @@ jobs:
           docker push "${ECR_URI}:latest"
           echo "ERROR_STREAM_ECR_URI=${ECR_URI}" >> $GITHUB_ENV
 
-      - name: Register new task definition revision
-        run: |
-          aws ecs describe-task-definition --task-definition "$ERROR_STREAM_TASK_DEFINITION" --query 'taskDefinition' --output json > task-def.json
-          IMAGE="${{ env.ERROR_STREAM_ECR_URI }}:${GITHUB_SHA}"
-          cat task-def.json | jq --arg IMAGE "$IMAGE" --arg NAME "$ERROR_STREAM_CONTAINER_NAME" '
-            .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
-            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .registeredAt, .registeredBy, .compatibilities)
-          ' > new-task-def.json
-          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
-          echo "ERROR_STREAM_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
+      # - name: Register new task definition revision
+      #   run: |
+      #     aws ecs describe-task-definition --task-definition "$ERROR_STREAM_TASK_DEFINITION" --query 'taskDefinition' --output json > task-def.json
+      #     IMAGE="${{ env.ERROR_STREAM_ECR_URI }}:${GITHUB_SHA}"
+      #     cat task-def.json | jq --arg IMAGE "$IMAGE" --arg NAME "$ERROR_STREAM_CONTAINER_NAME" '
+      #       .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
+      #       | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .registeredAt, .registeredBy, .compatibilities)
+      #     ' > new-task-def.json
+      #     NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+      #     echo "ERROR_STREAM_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
-      - name: Trigger ECS deployment
-        run: |
-          aws ecs update-service \
-            --cluster "$ERROR_STREAM_ECS_CLUSTER" \
-            --service "$ERROR_STREAM_ECS_SERVICE" \
-            --task-definition "$ERROR_STREAM_TASK_DEF_ARN" \
-            --force-new-deployment
+      # - name: Trigger ECS deployment
+      #   run: |
+      #     aws ecs update-service \
+      #       --cluster "$ERROR_STREAM_ECS_CLUSTER" \
+      #       --service "$ERROR_STREAM_ECS_SERVICE" \
+      #       --task-definition "$ERROR_STREAM_TASK_DEF_ARN" \
+      #       --force-new-deployment
