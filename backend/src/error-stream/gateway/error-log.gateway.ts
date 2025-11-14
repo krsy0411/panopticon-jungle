@@ -52,7 +52,7 @@ export class ErrorLogGateway
   private readonly logger = new Logger(ErrorLogGateway.name);
 
   onModuleInit(): void {
-    this.logger.log("에러 로그 WebSocket 게이트웨이가 초기화되었습니다.");
+    this.logger.log("에러 로그 WebSocket 게이트웨이가 초기화되었습니다!");
   }
 
   onModuleDestroy(): void {
