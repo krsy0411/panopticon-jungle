@@ -3,18 +3,20 @@
  * 11월 12일 00:00 ~ 15:00 시간대의 랜덤 데이터 생성
  */
 
-const API_BASE_URL =
-  'http://panopticon-alb-2099783513.ap-northeast-2.elb.amazonaws.com/producer'; // 여기에 배포된 서버 URL 입력
+const API_BASE_URL = 'http://localhost:3005/producer';
+// 'http://panopticon-alb-2099783513.ap-northeast-2.elb.amazonaws.com/producer';
 
 // 설정
 const CONFIG = {
   START_TIME: new Date('2025-11-12T00:00:00+09:00'),
   END_TIME: new Date('2025-11-12T15:00:00+09:00'),
-  TOTAL_SPANS: 100, // 생성할 span 개수
-  TOTAL_LOGS: 0, // 생성할 log 개수
-  BATCH_SIZE: 5, // 한 번에 보낼 개수
-  DELAY_MS: 100, // 배치 간 딜레이 (ms)
+  TOTAL_SPANS: 1, // 생성할 span 개수
+  TOTAL_LOGS: 1, // 생성할 log 개수
+  BATCH_SIZE: 1, // 한 번에 보낼 개수
+  DELAY_MS: 1, // 배치 간 딜레이 (ms)
 };
+
+const TOTAL = CONFIG.TOTAL_SPANS + CONFIG.TOTAL_LOGS;
 
 // 샘플 데이터
 const SERVICES = [
@@ -253,19 +255,35 @@ async function main() {
 
   try {
     // Log 데이터 전송
+    const start = Date.now();
     console.log('📝 Sending log data...');
-    await sendInBatches('/logs', generateLog, CONFIG.TOTAL_LOGS);
+    await sendInBatches('/v1/logs', generateLog, CONFIG.TOTAL_LOGS);
     console.log();
 
     // Span 데이터 전송
     console.log('📊 Sending span data...');
-    await sendInBatches('/traces', generateSpan, CONFIG.TOTAL_SPANS);
+    await sendInBatches('/v1/httplogs', generateSpan, CONFIG.TOTAL_SPANS);
     console.log();
 
     console.log('✅ All data sent successfully!');
     console.log(
       `\nSummary: ${CONFIG.TOTAL_LOGS} logs + ${CONFIG.TOTAL_SPANS} spans = ${CONFIG.TOTAL_LOGS + CONFIG.TOTAL_SPANS} total records`,
     );
+
+    const duration = (Date.now() - start) / 1000;
+    console.log(`\n✅ Done in ${duration.toFixed(2)}s`);
+    console.log(`Throughput: ${(TOTAL / duration).toFixed(2)} req/s`);
+
+    // 메트릭 확인
+
+    const metrics = await fetch(`${API_BASE_URL}/metrics`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    const metricsData = await metrics.json();
+    console.log('Metrics:', JSON.stringify(metricsData, null, 2));
   } catch (error) {
     console.error('❌ Error during execution:', error);
     process.exit(1);

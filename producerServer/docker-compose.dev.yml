@@ -43,6 +43,18 @@ services:
     networks:
       - dev-network
 
+  # 카프카 상태확인
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
+    depends_on:
+      - kafka    
+    networks:
+      - dev-network  
+
   localstack:
     image: localstack/localstack:latest
     container_name: dev-s3

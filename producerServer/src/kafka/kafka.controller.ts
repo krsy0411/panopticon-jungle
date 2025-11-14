@@ -19,18 +19,18 @@ export class KafkaController {
   @Post('v1/httplogs')
   @HttpCode(HttpStatus.ACCEPTED)
   async getHttpLogs(@Body() data: any) {
-    console.log(data);
-    // console.log(JSON.stringify(data));
+    const logData = Array.isArray(data) ? data : [data];
+    // console.log('Content-Type:', req.headers['content-type']);
+    // console.log(data);
+    await this.kafkaService.sendLogs(logData);
     return { success: true };
   }
 
   @Post('v1/logs')
   @HttpCode(HttpStatus.ACCEPTED)
-  async getlogs(@Body() data: any, @Req() req: any) {
-    // const logData = Array.isArray(data) ? data : [data];
-    console.log('Content-Type:', req.headers['content-type']);
-    console.log(data);
-    // await this.kafkaService.sendLogs(logData);
+  async getlogs(@Body() data: any) {
+    const logData = Array.isArray(data) ? data : [data];
+    await this.kafkaService.sendLogs(logData);
 
     return { success: true };
   }

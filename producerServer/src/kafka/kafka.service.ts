@@ -29,20 +29,12 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
 
   // 토픽별 설정 정의
   private readonly topicConfigs: Record<string, TopicConfig> = {
-    log: {
+    logs: {
       topic: 'apm.logs',
       acks: 1,
     },
-    span: {
+    spans: {
       topic: 'apm.spans',
-      acks: 1,
-    },
-    trace: {
-      topic: 'apm.traces',
-      acks: 1,
-    },
-    metric: {
-      topic: 'apm.metrics',
       acks: 1,
     },
   };
@@ -192,9 +184,19 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       value: JSON.stringify(log),
     }));
 
-    return this.sendMessage('log', messages);
+    return this.sendMessage('logs', messages);
   }
 
+  async sendHttpLogs(httpLogData: any | any[]) {
+    const httpLogs = Array.isArray(httpLogData) ? httpLogData : [httpLogData];
+    const normalLog = httpLogs.filter((log) => log.service_name);
+    const messages = normalLog.map((log) => ({
+      key: log.service_name || 'unknown', // 파티션 키: service_name
+      value: JSON.stringify(log),
+    }));
+
+    return this.sendMessage('spans', messages);
+  }
   /**
    * Span 데이터 전송 (파티션 키: trace_id)
    * OpenTelemetry Trace/Span 데이터 처리
