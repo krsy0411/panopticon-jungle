@@ -111,6 +111,7 @@ MVP 단계에서는 기본 ILM 정책을 사용해 저장 비용을 관리합니
 3. **ES 쿼리 추상화** – 쿼리 로직은 Repository 계층에서 관리하여 컨트롤러가 단순해지도록 합니다. 쿼리 문자열을 하드코딩하지 말고 파라미터에 따라 동적으로 작성하지만, 복잡한 DSL을 사용자에게 노출하지 않습니다.
 4. **성능 최적화** – 검색 결과는 pagination(`from`/`size` 또는 `search_after`)을 지원하고, 집계는 시간 버킷을 사용하여 메트릭을 효율적으로 계산합니다. 필요 시 캐싱을 도입합니다.
 5. **CORS 구성** – Query‑API는 `CORS_ALLOWED_ORIGINS` 환경 변수를 통해 허용 오리진을 콤마(`,`)로 구분하여 지정합니다(예: `https://www.jungle-panopticon.cloud,http://localhost:3000`). 값이 없으면 전체 오리진을 허용하여 로컬 개발을 지원합니다.
+6. **환경 별칭** – `environment` 파라미터는 `prod`/`stage`/`dev` 같은 축약형을 `production`/`staging`/`development`로 자동 정규화하여 필터링합니다. 저장된 값과 동일한 문자열을 보내도 되고, 축약형으로 보내도 동일한 결과를 얻습니다.
 
 ### 3.6 공통 Instrumentation (OpenTelemetry)
 

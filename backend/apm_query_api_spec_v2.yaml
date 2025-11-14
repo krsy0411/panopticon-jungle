@@ -40,7 +40,7 @@ paths:
             format: date-time
         - name: environment
           in: query
-          description: Deployment environment filter (e.g. `prod`, `stage`, `dev`).  When not provided, all environments are included.
+          description: Deployment environment filter (e.g. `prod`, `stage`, `dev`).  Shorthand values are normalized to their canonical names (e.g. `prod` → `production`).  When not provided, all environments are included.
           required: false
           schema:
             type: string
@@ -165,7 +165,7 @@ paths:
             format: date-time
         - name: environment
           in: query
-          description: Deployment environment filter (e.g. `prod`, `stage`, `dev`).
+          description: Deployment environment filter (e.g. `prod`, `stage`, `dev`).  Shorthand values are normalized to their canonical names (e.g. `prod` → `production`).
           required: false
           schema:
             type: string
@@ -433,7 +433,7 @@ paths:
             format: date-time
         - name: environment
           in: query
-          description: Deployment environment filter (e.g. `prod`, `stage`, `dev`).
+          description: Deployment environment filter (e.g. `prod`, `stage`, `dev`).  Shorthand values are normalized to their canonical names (e.g. `prod` → `production`).
           required: false
           schema:
             type: string
@@ -533,7 +533,7 @@ paths:
             format: date-time
         - name: environment
           in: query
-          description: Deployment environment filter (e.g. `prod`, `stage`, `dev`).
+          description: Deployment environment filter (e.g. `prod`, `stage`, `dev`).  Shorthand values are normalized to their canonical names (e.g. `prod` → `production`).
           required: false
           schema:
             type: string
