@@ -10,7 +10,11 @@ async function bootstrap() {
   // Protobuf 처리를 위한 raw body 파서
   app.use(
     bodyParser.raw({
-      type: '*/*',
+      type: [
+        'application/x-protobuf',
+        'application/protobuf',
+        'application/octet-stream',
+      ],
       limit: '50mb',
       verify: (req: any, _res, buf) => {
         req.rawBody = buf;
@@ -18,9 +22,7 @@ async function bootstrap() {
     }),
   );
 
-  // JSON 파서
   app.use(bodyParser.json({ limit: '10mb' }));
-
   app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
   // prefix 고정

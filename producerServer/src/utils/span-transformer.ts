@@ -157,9 +157,9 @@ export class SpanTransformer {
       for (const scopeSpan of resourceSpan.scopeSpans || []) {
         // spans 순회
         for (const span of scopeSpan.spans || []) {
-          // if (span.kind === 'SPAN_KIND_INTERNAL') {
-          //   continue; // 건너뛰기
-          // }
+          if (span.kind === 'SPAN_KIND_INTERNAL') {
+            continue; // 건너뛰기
+          }
           spans.push(this.transformSpan(span, serviceName, environment));
         }
       }
