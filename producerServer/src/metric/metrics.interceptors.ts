@@ -24,8 +24,9 @@ export class MetricsInterceptor implements NestInterceptor {
           this.responseTimes.push(duration);
           if (this.responseTimes.length > 1000) this.responseTimes.shift();
         },
-        error: () => {
+        error: (err) => {
           this.errorCount++;
+          console.log(err);
         },
       }),
     );

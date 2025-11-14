@@ -6,16 +6,21 @@ import {
   HttpStatus,
   Logger,
   Req,
+  Get,
 } from '@nestjs/common';
 import { KafkaService } from './kafka.service';
 import { ProtobufDecoder } from '../utils/protobuf-decoder';
 import { SpanTransformer } from '../utils/span-transformer';
+import { MetricsInterceptor } from '../metric/metrics.interceptors';
 
 @Controller()
 export class KafkaController {
   private readonly logger = new Logger(KafkaController.name);
 
-  constructor(private readonly kafkaService: KafkaService) {}
+  constructor(
+    private readonly kafkaService: KafkaService,
+    private readonly metricsInterceptor: MetricsInterceptor,
+  ) {}
   @Post('v1/httplogs')
   @HttpCode(HttpStatus.ACCEPTED)
   async getHttpLogs(@Body() data: any) {
@@ -57,5 +62,14 @@ export class KafkaController {
       this.logger.error('Failed to ingest logs', error);
       throw error;
     }
+  }
+
+  /**
+   * Kafka 메트릭 조회
+   * GET /metrics
+   */
+  @Get('metrics')
+  getMetrics() {
+    return this.metricsInterceptor.getMetrics();
   }
 }

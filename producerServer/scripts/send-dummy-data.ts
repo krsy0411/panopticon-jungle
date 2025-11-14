@@ -10,10 +10,10 @@ const API_BASE_URL = 'http://localhost:3005/producer';
 const CONFIG = {
   START_TIME: new Date('2025-11-12T00:00:00+09:00'),
   END_TIME: new Date('2025-11-12T15:00:00+09:00'),
-  TOTAL_SPANS: 1, // 생성할 span 개수
-  TOTAL_LOGS: 1, // 생성할 log 개수
-  BATCH_SIZE: 1, // 한 번에 보낼 개수
-  DELAY_MS: 1, // 배치 간 딜레이 (ms)
+  TOTAL_SPANS: 10000, // 생성할 span 개수
+  TOTAL_LOGS: 10000, // 생성할 log 개수
+  BATCH_SIZE: 10, // 한 번에 보낼 개수
+  DELAY_MS: 0, // 배치 간 딜레이 (ms)
 };
 
 const TOTAL = CONFIG.TOTAL_SPANS + CONFIG.TOTAL_LOGS;
@@ -275,15 +275,17 @@ async function main() {
     console.log(`Throughput: ${(TOTAL / duration).toFixed(2)} req/s`);
 
     // 메트릭 확인
-
+    console.log('\n📊 Fetching metrics...');
     const metrics = await fetch(`${API_BASE_URL}/metrics`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
     });
+
     const metricsData = await metrics.json();
-    console.log('Metrics:', JSON.stringify(metricsData, null, 2));
+
+    console.log(JSON.stringify(metricsData, null, 2));
   } catch (error) {
     console.error('❌ Error during execution:', error);
     process.exit(1);
