@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/error-stream",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.error-stream.tsbuildinfo"
+  },
+  "include": [
+    "src/shared/common/**/*",
+    "src/shared/apm/**/*",
+    "src/shared/logs/**/*",
+    "src/error-stream/**/*",
+    "src/types/**/*"
+  ],
+  "exclude": [
+    "src/query-api/**/*",
+    "src/stream-processor/**/*",
+    "test",
+    "dist",
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}

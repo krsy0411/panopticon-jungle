@@ -4,6 +4,7 @@ import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import { LogIngestService } from "../apm/log-ingest/log-ingest.service";
 import { LogEventDto } from "../../shared/apm/logs/dto/log-event.dto";
+import { ErrorLogForwarderService } from "./error-log-forwarder.service";
 
 class InvalidLogEventError extends Error {
   constructor(message: string) {
@@ -19,7 +20,10 @@ class InvalidLogEventError extends Error {
 export class LogConsumerController {
   private readonly logger = new Logger(LogConsumerController.name);
 
-  constructor(private readonly logIngestService: LogIngestService) {}
+  constructor(
+    private readonly logIngestService: LogIngestService,
+    private readonly errorLogForwarder: ErrorLogForwarderService,
+  ) {}
 
   @EventPattern(process.env.KAFKA_APM_LOG_TOPIC ?? "apm.logs")
   async handleLogEvent(@Ctx() context: KafkaContext): Promise<void> {
@@ -32,6 +36,7 @@ export class LogConsumerController {
     try {
       const dto = this.parsePayload(value);
       await this.logIngestService.ingest(dto);
+      await this.errorLogForwarder.forward(dto);
       this.logger.debug(
         `로그가 색인되었습니다. topic=${context.getTopic()} partition=${context.getPartition()}`,
       );

@@ -1,98 +1,58 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+## 🐳 Backend Images for CI/CD
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS 백엔드는 다음 두 이미지로 분리해 ECS에 개별 배포할 수 있습니다.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
-
-```bash
-$ npm install
+```
+backend/src
+├── query-api          # HTTP 요청을 받아 DB(OpenSearch/Timescale)에서 읽기 전용 응답 제공
+├── stream-processor   # MSK(Kafka)에서 소비한 로그·스팬을 정제 후 저장
+├── error-stream       # apm.logs.error 토픽을 WebSocket으로 중계해 실시간 알림 제공
+└── shared             # DTO/Repository/인프라 연결 등 공통 모듈
 ```
 
-## Compile and run the project
+| 이미지 | Docker target | 역할 |
+| ------ | ------------- | ---- |
+| `panopticon-query-api` | `query-api` | 브라우저 요청을 받아 OpenSearch/TimescaleDB를 조회하는 읽기 전용 API |
+| `panopticon-stream-processor` | `stream-processor` | MSK(Kafka) 스트림을 소비해 로그/스팬을 정제 후 OpenSearch/TimescaleDB에 적재 |
+| `panopticon-error-stream` | `error-stream` | `apm.logs.error` 토픽을 구독해 WebSocket 으로 프런트엔드(NEXT.js)에 실시간 전송 |
+
+### Build & Push
 
 ```bash
-# development
-$ npm run start
+# Query API
+docker build -f backend/Dockerfile -t panopticon-query-api --target query-api backend
 
-# watch mode
-$ npm run start:dev
+# Stream Processor
+docker build -f backend/Dockerfile -t panopticon-stream-processor --target stream-processor backend
 
-# production mode
-$ npm run start:prod
+# Error Stream (Kafka → WebSocket)
+docker build -f backend/Dockerfile -t panopticon-error-stream --target error-stream backend
+
+# (선택) ECR 로그인 및 푸시
+aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <account>.dkr.ecr.<region>.amazonaws.com
+docker tag panopticon-query-api:latest <account>.dkr.ecr.<region>.amazonaws.com/panopticon-query-api:latest
+docker tag panopticon-stream-processor:latest <account>.dkr.ecr.<region>.amazonaws.com/panopticon-stream-processor:latest
+docker push <account>.dkr.ecr.<region>.amazonaws.com/panopticon-query-api:latest
+docker push <account>.dkr.ecr.<region>.amazonaws.com/panopticon-stream-processor:latest
 ```
 
-## Run tests
+ECS 태스크 정의에서는 각 이미지를 별도 컨테이너로 등록하고, MSK/OpenSearch/Timescale 등 매니지드 엔드포인트를 환경 변수로 주입하면 됩니다. 로컬 개발 시에는 `infra/docker-compose.yml`을 이용해 동일한 이미지를 Compose 빌드 타깃으로 실행할 수 있습니다.
 
-```bash
-# unit tests
-$ npm run test
+### NPM Scripts
 
-# e2e tests
-$ npm run test:e2e
+- `npm run build:query-api` / `npm run build:stream-processor`: 각 서버만 컴파일
+- `npm run build:error-stream`: WebSocket 기반 에러 스트림 서버 컴파일
+- `npm run start:prod`: `dist/query-api/query-api/main.js` 실행 (읽기 API)
+- `npm run start:stream-processor:prod`: `dist/stream-processor/stream-processor/main.js` 실행 (Kafka 컨슈머)
+- `npm run start:error-stream:prod`: `dist/error-stream/main.js` 실행 (Kafka→WebSocket 브리지)
 
-# test coverage
-$ npm run test:cov
-```
+### Error Stream 환경 변수
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+| 변수 | 설명 |
+| --- | --- |
+| `KAFKA_APM_LOG_ERROR_TOPIC` | 기본 `apm.logs.error`. MSK 토픽 이름 |
+| `ERROR_STREAM_KAFKA_CLIENT_ID` / `ERROR_STREAM_KAFKA_GROUP_ID` | MSK 클러스터 연결용 Kafka client/group 식별자 |
+| `ERROR_STREAM_PORT` | WebSocket 서버 포트 (기본 3010) |
+| `ERROR_STREAM_WS_ORIGINS` | 허용할 Origin 목록. 콤마로 구분 (기본 모든 Origin 허용) |
+| `ERROR_STREAM_WS_PATH` | WebSocket 엔드포인트 경로 (기본 `/ws/error-logs`) |
+- `npm run test:app-log` / `npm run test:http-log`: 로컬에서 샘플 Kafka 메시지 전송 (필요 시 `KAFKA_BROKERS_LOCAL=localhost:9092` 등으로 브로커 주소를 덮어쓰세요)
