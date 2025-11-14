@@ -239,12 +239,12 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       const topicsToCreate = [];
 
       // log, trace, metric 토픽 생성
-      const topics = ['apm.logs', 'apm.traces', 'apm.spans', 'apm.metrics'];
+      const topics = ['apm.logs', 'apm.spans', 'apm.logs.error'];
       for (const topic of topics) {
         if (!existingTopics.includes(topic)) {
           topicsToCreate.push({
             topic,
-            numPartitions: 6, // 파티션 6개
+            numPartitions: 4, // 파티션 4개
             replicationFactor: 1, // 로컬 브로커 1개
             configEntries: [
               {
