@@ -19,7 +19,7 @@ export class ErrorLogConsumerController {
   ) {}
 
   @EventPattern(process.env.KAFKA_APM_LOG_ERROR_TOPIC ?? "apm.logs.error")
-  async handleErrorLog(@Ctx() context: KafkaContext): Promise<void> {
+  handleErrorLog(@Ctx() context: KafkaContext): void {
     const { value } = context.getMessage();
     if (value == null) {
       this.logger.warn("Kafka 메시지에 value가 비어 있어 건너뜁니다.");

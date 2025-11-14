@@ -49,7 +49,9 @@ export class ErrorLogParserService {
         `JSON 파싱에 실패했습니다: ${String(error)}`,
       );
     }
-    throw new InvalidErrorLogPayloadError("Kafka payload가 객체 형식이 아닙니다.");
+    throw new InvalidErrorLogPayloadError(
+      "Kafka payload가 객체 형식이 아닙니다.",
+    );
   }
 
   private unwrapValue(value: unknown): unknown {

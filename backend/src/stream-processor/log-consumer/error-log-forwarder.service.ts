@@ -22,8 +22,7 @@ export class ErrorLogForwarderService implements OnModuleInit, OnModuleDestroy {
   private readonly topic =
     process.env.KAFKA_APM_LOG_ERROR_TOPIC ?? "apm.logs.error";
   private readonly clientId =
-    process.env.KAFKA_APM_LOG_ERROR_CLIENT_ID ??
-    "log-consumer-error-forwarder";
+    process.env.KAFKA_APM_LOG_ERROR_CLIENT_ID ?? "log-consumer-error-forwarder";
 
   private readonly kafka = new Kafka({
     clientId: this.clientId,

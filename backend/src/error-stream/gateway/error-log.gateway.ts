@@ -1,8 +1,4 @@
-import {
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from "@nestjs/common";
+import { Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -80,7 +76,9 @@ export class ErrorLogGateway
    */
   emitErrorLog(payload: ErrorLogPayload): void {
     if (!this.server) {
-      this.logger.warn("WebSocket 서버가 초기화되지 않아 메시지를 보낼 수 없습니다.");
+      this.logger.warn(
+        "WebSocket 서버가 초기화되지 않아 메시지를 보낼 수 없습니다.",
+      );
       return;
     }
     this.server.emit("error-log", payload);
