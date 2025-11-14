@@ -125,8 +125,8 @@ paths:
       summary: Retrieve aggregated metrics for a service
       description: |
         Returns a series of service‑level metrics derived from span data.  Supported metrics include
-        total request counts (`http_requests_total`), latency percentiles (`latency_p95_ms` for the 95th
-        percentile) and error rate (`error_rate`).  When the `metric` parameter is omitted, all supported
+        total request counts (`http_requests_total`), latency percentiles (`latency_p95_ms`, `latency_p90_ms`,
+        `latency_p50_ms`) and error rate (`error_rate`).  When the `metric` parameter is omitted, all supported
         metrics are returned.  The `serviceName` corresponds to the `service_name` field on stored events and
         is case‑insensitive【629151000030751†L150-L170】.
       parameters:
@@ -142,11 +142,13 @@ paths:
             Metric to compute.  If omitted, all supported metrics are returned.  Supported values are:
             * `http_requests_total` – Number of server‑side spans (kind `SERVER`) per interval.
             * `latency_p95_ms` – 95th percentile of `duration_ms` over server‑side spans.
+            * `latency_p90_ms` – 90th percentile of `duration_ms` over server‑side spans.
+            * `latency_p50_ms` – 50th percentile (median) of `duration_ms` over server‑side spans.
             * `error_rate` – Ratio of spans with `status=ERROR` to total spans in the interval.
           required: false
           schema:
             type: string
-            enum: [http_requests_total, latency_p95_ms, error_rate]
+            enum: [http_requests_total, latency_p95_ms, latency_p90_ms, latency_p50_ms, error_rate]
         - name: from
           in: query
           description: Start time of the time window (inclusive) in ISO 8601 format.

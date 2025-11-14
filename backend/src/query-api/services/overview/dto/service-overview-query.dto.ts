@@ -1,3 +1,4 @@
+import { Type } from "class-transformer";
 import {
   IsISO8601,
   IsIn,
@@ -33,5 +34,6 @@ export class ServiceOverviewQueryDto {
   @IsInt()
   @IsPositive()
   @Min(1)
+  @Type(() => Number)
   limit?: number;
 }

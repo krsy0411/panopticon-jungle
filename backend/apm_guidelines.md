@@ -31,7 +31,7 @@ APM은 **fluent‑bit**와 **OpenTelemetry Collector**와 같은 수집기로부
 | 타입    | 요약 정의 | 예시 및 핵심 필드 |
 |---------|-----------|------------------|
 | **Log** | 특정 시점에 발생한 이벤트를 텍스트나 JSON 형태로 기록한 것입니다. 로그는 디버깅이나 이벤트 추적에 사용되며 `timestamp`, `level`, `service.name`, `trace.id`, `span.id` 등의 필드를 포함합니다. | 예: `{"timestamp":"2025-11-09T10:15:32Z","level":"INFO","service.name":"order-service","trace.id":"b7f3…","message":"Created order"}` |
-| **Metric** | 집계 가능한 숫자 값의 시계열 데이터입니다. 메트릭은 CPU 사용률, 요청 수, 지연 시간(p95) 등 시스템 상태를 추상화합니다. 고카디널리티를 피하도록 레이블을 신중히 설계합니다. | 예: `{"metric.name":"http.server.requests.count","service.name":"order-service","labels":{"path":"/orders","status":"2xx"},"value":152}` |
+| **Metric** | 집계 가능한 숫자 값의 시계열 데이터입니다. 메트릭은 CPU 사용률, 요청 수, 지연 시간(p95/p90/p50) 등 시스템 상태를 추상화합니다. 고카디널리티를 피하도록 레이블을 신중히 설계합니다. | 예: `{"metric.name":"http.server.requests.count","service.name":"order-service","labels":{"path":"/orders","status":"2xx"},"value":152}` |
 | **Trace** | 하나의 요청·트랜잭션 전체 여정을 표현하는 상위 개념입니다. 단일 `trace.id`에 여러 스팬이 속하며 분산 시스템의 호출 그래프를 복원할 수 있습니다. | 예: `trace_id=b7f3…`에 루트 스팬(HTTP 요청)과 하위 스팬(DB 호출, 외부 결제 호출 등)이 포함됩니다. |
 | **Span** | Trace를 구성하는 가장 작은 단위의 작업입니다. `span.id`, `parent.id`, `service.name`, `start_time`, `end_time`, `attributes`를 갖습니다. 스팬들의 트리로 전체 트레이스를 재구성합니다. | 예: `{"span.id":"payment-1","parent.id":"order-1","service.name":"payment-service","span.name":"ChargeCard","attributes":{"payment.amount":39000}}` |
 
@@ -106,10 +106,11 @@ MVP 단계에서는 기본 ILM 정책을 사용해 저장 비용을 관리합니
 1. **읽기 전용 설정** – Query‑API는 HTTP 서버 형태로 동작하며, Elasticsearch 클라이언트로 검색과 집계만 수행합니다. 쓰기, 삭제 등은 허용하지 않습니다.
 2. **엔드포인트 설계** – 주요 엔드포인트는 아래와 같습니다:
    - `/traces/{traceId}` – 특정 트레이스의 모든 스팬과 관련 로그를 조회합니다.
-   - `/services/{serviceName}/metrics` – 서비스의 메트릭(p95 latency, error rate 등)을 집계하여 반환합니다.
+   - `/services/{serviceName}/metrics` – 서비스의 메트릭(p95/p90/p50 latency, error rate 등)을 집계하여 반환합니다.
    - `/logs/search` – 조건(기간, 서비스, level 등)에 따른 로그 검색.
 3. **ES 쿼리 추상화** – 쿼리 로직은 Repository 계층에서 관리하여 컨트롤러가 단순해지도록 합니다. 쿼리 문자열을 하드코딩하지 말고 파라미터에 따라 동적으로 작성하지만, 복잡한 DSL을 사용자에게 노출하지 않습니다.
 4. **성능 최적화** – 검색 결과는 pagination(`from`/`size` 또는 `search_after`)을 지원하고, 집계는 시간 버킷을 사용하여 메트릭을 효율적으로 계산합니다. 필요 시 캐싱을 도입합니다.
+5. **CORS 구성** – Query‑API는 `CORS_ALLOWED_ORIGINS` 환경 변수를 통해 허용 오리진을 콤마(`,`)로 구분하여 지정합니다(예: `https://www.jungle-panopticon.cloud,http://localhost:3000`). 값이 없으면 전체 오리진을 허용하여 로컬 개발을 지원합니다.
 
 ### 3.6 공통 Instrumentation (OpenTelemetry)
 

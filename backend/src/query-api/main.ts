@@ -8,6 +8,25 @@ loadEnv();
 
 async function bootstrap() {
   const app = await NestFactory.create(QueryApiModule);
+
+  const corsEnv = process.env.CORS_ALLOWED_ORIGINS ?? "";
+  const corsOrigins = corsEnv
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
+  app.enableCors({
+    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    methods: ["GET", "HEAD", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+    ],
+    maxAge: 3600,
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
