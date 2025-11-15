@@ -1,60 +1,88 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { SpanRepository } from "../../shared/apm/spans/span.repository";
 import type { ServiceMetricBucket } from "../../shared/apm/spans/span.repository";
-import { resolveTimeRange } from "../common/time-range.util";
 import type { MetricResponse } from "./service-metric.types";
 import type { ServiceMetricsQueryDto } from "./dto/service-metrics-query.dto";
+import { MetricsQueryNormalizerService } from "./metrics-query-normalizer.service";
+import type { NormalizedServiceMetricsQuery } from "./normalized-service-metrics-query.type";
+import { MetricsCacheService } from "./metrics-cache.service";
 
 /**
  * 시계열 집계를 위한 내부 파라미터
  * - from/to: 조회 구간
  * - interval: date_histogram 에 전달할 간격 표현식(예: 1m, 5m)
  */
-interface MetricComputationParams {
-  serviceName: string;
-  environment?: string;
-  from: string;
-  to: string;
-  interval: string;
-}
-
 @Injectable()
 export class ServiceMetricsService {
-  constructor(private readonly spanRepository: SpanRepository) {}
+  private readonly logger = new Logger(ServiceMetricsService.name);
+
+  constructor(
+    private readonly spanRepository: SpanRepository,
+    private readonly queryNormalizer: MetricsQueryNormalizerService,
+    private readonly metricsCache: MetricsCacheService,
+  ) {}
 
   async getMetrics(
     serviceName: string,
     query: ServiceMetricsQueryDto,
   ): Promise<MetricResponse[]> {
-    const params = this.buildParams(serviceName, query);
+    // 1) 쿼리를 10초 시간 버킷으로 정규화하고 캐시 여부를 판별한다.
+    const normalized = this.queryNormalizer.normalize(serviceName, query);
+    const cacheEnabled =
+      normalized.shouldUseCache && this.metricsCache.isEnabled();
+    let cacheKey: string | null = null;
+
+    if (cacheEnabled) {
+      // 캐시가 활성화된 경우 먼저 Redis에서 결과를 조회한다.
+      cacheKey = this.metricsCache.buildKey(normalized);
+      const cached = await this.metricsCache.get(cacheKey);
+      if (cached) {
+        this.logger.debug(
+          `서비스 메트릭 캐시 히트 service=${normalized.serviceName} env=${normalized.environment ?? "all"} from=${normalized.from} to=${normalized.to} interval=${normalized.interval}`,
+        );
+        return JSON.parse(cached) as MetricResponse[];
+      }
+      this.logger.debug(
+        `서비스 메트릭 캐시 미스 service=${normalized.serviceName} env=${normalized.environment ?? "all"} from=${normalized.from} to=${normalized.to} interval=${normalized.interval}`,
+      );
+    }
+
+    const params = this.toMetricParams(normalized);
     const buckets = await this.spanRepository.aggregateServiceMetrics(params);
     const metrics = this.toMetricResponses(
-      serviceName,
-      params.environment,
+      normalized.serviceName,
+      normalized.environment,
       buckets,
     );
 
-    if (query.metric) {
-      return metrics.filter((item) => item.metric_name === query.metric);
+    const filteredMetrics = normalized.metric
+      ? metrics.filter((item) => item.metric_name === normalized.metric)
+      : metrics;
+
+    if (cacheEnabled && cacheKey) {
+      // ES에서 구한 결과를 짧은 TTL로 Redis에 적재한다.
+      await this.metricsCache.set(cacheKey, JSON.stringify(filteredMetrics));
     }
 
-    return metrics;
+    return filteredMetrics;
   }
 
-  private buildParams(
-    serviceName: string,
-    query: ServiceMetricsQueryDto,
-  ): MetricComputationParams {
-    const { from, to } = resolveTimeRange(query.from, query.to, 15);
-    const interval =
-      this.resolveIntervalExpression(query) ?? this.autoInterval(from, to);
-
+  /**
+   * 캐시 로직과 ES 검색 파라미터 변환을 분리해 SOLID 원칙을 지킨다.
+   */
+  private toMetricParams(normalized: NormalizedServiceMetricsQuery): {
+    serviceName: string;
+    environment?: string;
+    from: string;
+    to: string;
+    interval: string;
+  } {
     return {
-      serviceName,
-      environment: query.environment,
-      from,
-      to,
-      interval,
+      serviceName: normalized.serviceName,
+      environment: normalized.environment,
+      from: normalized.from,
+      to: normalized.to,
+      interval: normalized.interval,
     };
   }
 
@@ -129,39 +157,5 @@ export class ServiceMetricsService {
 
   private baseLabels(environment?: string): Record<string, string> | undefined {
     return environment ? { environment } : undefined;
-  }
-
-  private resolveIntervalExpression(
-    query: ServiceMetricsQueryDto,
-  ): string | undefined {
-    if (query.intervalMinutes) {
-      const minutes = Math.max(1, Math.floor(query.intervalMinutes));
-      return `${minutes}m`;
-    }
-
-    if (query.interval && /^\d+(s|m|h)$/.test(query.interval)) {
-      return query.interval;
-    }
-
-    return undefined;
-  }
-
-  private autoInterval(from: string, to: string): string {
-    const diffMs = new Date(to).getTime() - new Date(from).getTime();
-    const diffMinutes = Math.max(diffMs / (60 * 1000), 1);
-
-    if (diffMinutes <= 30) {
-      return "1m";
-    }
-    if (diffMinutes <= 120) {
-      return "5m";
-    }
-    if (diffMinutes <= 360) {
-      return "15m";
-    }
-    if (diffMinutes <= 1440) {
-      return "30m";
-    }
-    return "1h";
   }
 }

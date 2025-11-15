@@ -9,7 +9,7 @@
 ### 1. 사전 준비
 - Docker Desktop 실행
 - kind 클러스터 실행 중
-- Kafka, TimescaleDB 실행 중 (`cd infra && docker-compose up -d`)
+- Kafka/Elasticsearch/Redis 실행 중 (`cd infra && docker-compose up -d kafka elasticsearch redis`)
 
 ### 2. FluentBit 설정 적용
 
@@ -40,18 +40,8 @@ npm run start:dev:metrics-consumer
 ### 4. 데이터 확인
 
 ```bash
-# TimescaleDB에서 확인
-PGPASSWORD=admin123 psql -h localhost -p 5433 -U admin -d panopticon -c "
-  SELECT
-    time,
-    service,
-    pod_name,
-    cpu_usage_percent
-  FROM system_metrics
-  WHERE service = 'log-collector'
-  ORDER BY time DESC
-  LIMIT 5;
-"
+# Query API 메트릭 엔드포인트 확인
+curl "http://localhost:3001/services/log-collector/metrics?metric=http_requests_total"
 ```
 
 ---
@@ -104,4 +94,4 @@ cd k8s_userside_log_generator
 2. `kubectl rollout restart daemonset/fluent-bit` - 재시작
 3. `npm run start:dev:metrics-consumer` - 백엔드 실행
 4. 30초 기다리기
-5. TimescaleDB에서 확인
+5. Query API에서 확인 (`GET /services/{serviceName}/metrics`)

@@ -1,7 +1,7 @@
-# APM 프로젝트: 실시간 집계용 10초 양자화 & Redis 캐시 설계 명세
+# APM 프로젝트: 실시간 집계용 10초 버킷화 & Redis 캐시 설계 명세
 
-이 문서는 기존 **APM Query-API**에 **Redis 기반 캐시 + 10초 양자화(quantization)**를 추가하여, 반복되는 실시간 집계 요청의 부하를 줄이기 위한 설계 명세다.  
-현재 시스템에는 **Redis 캐시와 양자화 로직이 전혀 구현되어 있지 않으며**, 모든 메트릭 조회는 Elasticsearch(이하 ES)에 대해 실시간 집계를 수행한다.
+이 문서는 기존 **APM Query-API**에 **Redis 기반 캐시 + 10초 시간 버킷(bucketing)**을 추가하여, 반복되는 실시간 집계 요청의 부하를 줄이기 위한 설계 명세다.  
+현재 시스템에는 **Redis 캐시와 버킷화 로직이 전혀 구현되어 있지 않으며**, 모든 메트릭 조회는 Elasticsearch(이하 ES)에 대해 실시간 집계를 수행한다.
 
 이 문서는 CLI codex 또는 개발자가 이 설계를 바탕으로 기존 코드를 수정/추가할 수 있도록 **구체적인 요구사항, 실패 시 동작, 모듈 구조, 키 설계, 알고리즘**까지 포함한다.
 
@@ -32,16 +32,16 @@
 
 ### 1.2 개선 목표
 
-1. **10초 양자화(quantization)**  
+1. **10초 버킷팅(bucketing)**  
    - “최근 1시간”과 같은 슬라이딩 윈도우 조회에 대해  
      **10초 단위로 시간 범위를 정규화**하여,  
      10초 동안 들어오는 동일 유형의 요청이 **동일한 from/to로 정규화**되도록 한다.
 2. **짧은 TTL Redis 캐시**  
    - 정규화된 쿼리를 기준으로 **Redis 키-값 캐시를 도입**하여,  
      동일 쿼리에 대해 ES 집계를 반복 수행하는 대신 캐시 결과를 재사용한다.
-   - TTL은 10초 양자화 주기를 고려해 **약간 더 긴 값(예: 20~30초)**으로 설정한다.
+   - TTL은 10초 버킷화 주기를 고려해 **약간 더 긴 값(예: 20~30초)**으로 설정한다.
 3. **기존 기능과의 호환성 유지**
-   - 캐시/양자화 기능은 **점진적 최적화 레이어**로 동작해야 하며,  
+   - 캐시/버킷화 기능은 **점진적 최적화 레이어**로 동작해야 하며,  
      캐시가 동작하지 않더라도 기존과 동일한 결과를 제공해야 한다.
    - Redis 장애 시에도 **기능 저하(graceful degradation)**만 있을 뿐, API는 계속 정상 동작해야 한다.
 
@@ -66,16 +66,16 @@
 
 ### 2.2 캐싱 대상/비대상 쿼리 구분
 
-캐시/양자화 적용 여부는 쿼리 유형에 따라 달라진다.
+캐시/버킷화 적용 여부는 쿼리 유형에 따라 달라진다.
 
-1. **슬라이딩 윈도우 기본 조회 (캐싱/양자화 대상)**  
+1. **슬라이딩 윈도우 기본 조회 (캐싱/버킷화 대상)**  
    - 클라이언트가 `from`/`to`를 명시하지 않고,  
      예를 들어 다음과 같은 의미로 요청하는 경우:
      - “최근 1시간” (default)
      - “최근 N분/시간” 등 서버에서 기본 윈도우를 결정하는 경우
    - 이 경우:
      - 서버가 **현재 시각 기준 슬라이딩 윈도우**를 정의하고
-     - **10초 양자화를 적용**
+     - **10초 버킷화를 적용**
      - 정규화된 쿼리에 대해 Redis 캐시를 사용
 
 2. **사용자 지정 `from`/`to` 조회 (기본적으로 캐시 비대상)**  
@@ -83,7 +83,7 @@
      - 예: `from=2025-11-14T00:00:00Z&to=2025-11-14T01:00:00Z`
    - 기본 정책:
      - 이 경우는 “ad-hoc 분석”으로 간주하고,  
-       **캐시/양자화의 이점이 작고 구현 복잡도가 증가하므로**  
+       **캐시/버킷화의 이점이 작고 구현 복잡도가 증가하므로**  
        1차 구현에서는 **캐시를 사용하지 않는다.**
    - 필요 시 향후:
      - 요청 파라미터 전체를 포함한 캐시 키를 설계하여  
@@ -91,14 +91,14 @@
 
 ---
 
-## 3. 10초 양자화 설계
+## 3. 10초 버킷화 설계
 
-### 3.1 양자화 개념
+### 3.1 버킷화 개념
 
-- 양자화 단위(quantization unit) `Q` = **10초**
+- 버킷 단위(bucketing unit) `Q` = **10초**
 - 기본 슬라이딩 윈도우 길이 `W` = **예: 1시간 (3600초)**  
   - 실제 값은 기존 시스템 기본값으로 맞춘다 (예: 15분/1시간 중 하나).
-- 현재 시각 `now` (ms 단위)를 다음과 같이 양자화:
+- 현재 시각 `now` (ms 단위)를 다음과 같이 버킷화:
 
 ```text
 quantizedNowMs = floor(nowMs / (Q * 1000)) * (Q * 1000)
@@ -110,14 +110,14 @@ from = new Date(quantizedNowMs - W * 1000)
   - 10초 이내에 들어오는 모든 슬라이딩 윈도우 요청은  
     **동일한 from/to 구간을 사용**하게 되어 캐시 키도 동일해진다.
 
-### 3.2 양자화 적용 조건
+### 3.2 버킷화 적용 조건
 
-- 다음 조건을 모두 만족할 때만 10초 양자화를 적용한다.
+- 다음 조건을 모두 만족할 때만 10초 버킷화를 적용한다.
   1. 클라이언트가 `from`/`to` 파라미터를 제공하지 않았다.
   2. 쿼리 타입이 “슬라이딩 윈도우 기본 조회”로 간주되는 경우.
   3. 서비스 환경이 “실시간 대시보드”로 명확한 경우 (별도 플래그 필요 시 확장).
 
-- 반대로, 다음 경우에는 양자화를 적용하지 않는다.
+- 반대로, 다음 경우에는 버킷화를 적용하지 않는다.
   - `from`/`to`가 명시된 ad-hoc 조회
   - 내부적으로 정확한 경계가 중요한 특수 분석 API (현재 범위 밖이므로 고려하지 않음)
 
@@ -129,15 +129,15 @@ from = new Date(quantizedNowMs - W * 1000)
 type NormalizedMetricsQuery = {
   serviceName: string;
   metric: 'latency' | 'request_total' | 'error_rate' | 'all';
-  from: Date;       // 양자화 또는 사용자 지정 결과 (항상 값 존재)
-  to: Date;         // 양자화 또는 사용자 지정 결과 (항상 값 존재)
+  from: Date;       // 버킷화 또는 사용자 지정 결과 (항상 값 존재)
+  to: Date;         // 버킷화 또는 사용자 지정 결과 (항상 값 존재)
   environment: string | null;
   interval: string; // 예: "10s", "30s", "1m" 등 실제 ES date_histogram interval
-  isSlidingWindow: boolean; // 양자화된 슬라이딩 윈도우인지 여부
+  isSlidingWindow: boolean; // 버킷화된 슬라이딩 윈도우인지 여부
 };
 ```
 
-- `isSlidingWindow = true`인 경우에만 캐시/양자화 대상이며,  
+- `isSlidingWindow = true`인 경우에만 캐시/버킷화 대상이며,  
   `from/to`는 **항상 10초 단위로 맞춰져 있게 된다.**
 
 ---
@@ -149,7 +149,7 @@ type NormalizedMetricsQuery = {
 - 캐시 로직은 **Query-API 서비스 계층**에 위치한다.
 - 처리 순서:
   1. 컨트롤러에서 DTO를 통해 쿼리 파라미터 파싱
-  2. **쿼리 정규화 서비스**가 `NormalizedMetricsQuery` 생성 (양자화 포함)
+  2. **쿼리 정규화 서비스**가 `NormalizedMetricsQuery` 생성 (버킷화 포함)
   3. **MetricsService**가 다음 로직 수행:
      - 캐시 키 생성
      - Redis 조회 (hit 시 즉시 반환)
@@ -211,7 +211,7 @@ filters:endpoint=/api/orders,status=all
 ```
 
 > **주의**:  
-> - `from`/`to`는 반드시 **양자화된 시각(10초 배수)**로 정규화된 값이어야 한다.  
+> - `from`/`to`는 반드시 **버킷화된 시각(10초 배수)**로 정규화된 값이어야 한다.  
 > - `filters`는 항상 동일 순서/형태로 직렬화해야 한다. (예: key를 정렬한 후 `key=value` 조합을 `,`로 연결)
 
 ### 4.3 캐시 값(Value) 설계
@@ -251,7 +251,7 @@ filters:endpoint=/api/orders,status=all
 
 ### 4.4 TTL 정책
 
-- 양자화 단위 `Q` = 10초를 고려할 때, TTL 설정 기준:
+- 버킷화 단위 `Q` = 10초를 고려할 때, TTL 설정 기준:
   - **최소**: 10초 (동일 구간 안에서만 재사용)
   - **권장**: 20~30초
 - 권장값 예:
@@ -290,7 +290,7 @@ filters:endpoint=/api/orders,status=all
 2. **MetricsQueryNormalizerService**
    - 책임:
      - `ServiceMetricsQueryDto` → `NormalizedMetricsQuery` 변환
-     - 10초 양자화 로직 적용
+     - 10초 버킷화 로직 적용
      - `interval` 자동 설정 (예: window 길이에 따라 10s/30s/1m 결정)
 
 3. **MetricsCacheService**
@@ -322,7 +322,7 @@ async getServiceMetrics(
 
 ```ts
 async getServiceMetrics(serviceName: string, queryDto: ServiceMetricsQueryDto) {
-  // 1) 쿼리 정규화 (10초 양자화 포함)
+  // 1) 쿼리 정규화 (10초 버킷화 포함)
   const normalized = this.metricsQueryNormalizer.normalizeServiceMetrics(serviceName, queryDto);
 
   // 2) 캐시 사용 여부 판단
@@ -386,7 +386,7 @@ class ServiceMetricsQueryDto {
    - `isSlidingWindow = false`
    - `from = new Date(dto.from)`
    - `to   = new Date(dto.to)`
-   - **양자화 적용 안 함**
+   - **버킷화 적용 안 함**
 
 2. 둘 다 제공되지 않은 경우:
    - `isSlidingWindow = true`
@@ -400,7 +400,7 @@ class ServiceMetricsQueryDto {
    - 1차 구현에서는 **요청을 400으로 처리**하거나,  
      내부 정책으로 보정 (예: `from`만 있을 때 `to=now`) 중 하나를 선택해야 한다.
    - 단순화를 위해:  
-     - **양자화/캐싱 대상에서 제외**하고 그대로 ES 실시간 집계만 수행하는 것도 가능.  
+     - **버킷화/캐싱 대상에서 제외**하고 그대로 ES 실시간 집계만 수행하는 것도 가능.  
        (이 케이스는 자주 쓰이지 않는다고 가정)
 
 #### 6.2.3 interval 자동 결정
@@ -429,7 +429,7 @@ class ServiceMetricsQueryDto {
      - 두 응답 내용이 동일해야 함.
      - 두 번째 요청에서 ES 쿼리가 발생하지 않아야 함(가능하면 모킹/메트릭으로 검증).
 
-2. **양자화 동작 검증**
+2. **버킷화 동작 검증**
    - 시각 차이가 약간 다른 요청(예: 2초/7초 차이)이라도  
      `from/to`가 동일한 값으로 정규화되는지 확인.
    - 예: 17:00:01, 17:00:09에 호출 → 둘 다 `to=17:00:00`, `from=16:00:00`.
@@ -450,7 +450,7 @@ class ServiceMetricsQueryDto {
 
 ### 7.2 경계 조건 테스트
 
-- **양자화 경계 시각**
+- **버킷화 경계 시각**
   - 정확히 10초 배수 시각(예: `...:00`, `...:10`)에서 요청이 들어왔을 때  
     `to`가 해당 시각으로 설정되는지 확인.
 - **대상 외 파라미터**
@@ -471,7 +471,7 @@ class ServiceMetricsQueryDto {
 
 2. **`MetricsQueryNormalizerService` 생성**
    - 입력 DTO(`ServiceMetricsQueryDto`) → `NormalizedMetricsQuery` 변환
-   - 10초 양자화 로직 구현 (`isSlidingWindow=true` 케이스)
+   - 10초 버킷화 로직 구현 (`isSlidingWindow=true` 케이스)
    - `interval` 자동 결정 로직 구현
 
 3. **`MetricsCacheService` 생성**
@@ -485,24 +485,24 @@ class ServiceMetricsQueryDto {
      - 캐시 키 생성 및 조회
      - 캐시 미스 시 기존 ES 집계 로직 호출
      - 결과 캐시에 저장 후 반환
-   - `isSlidingWindow=false`인 경우 캐시/양자화 미적용
+   - `isSlidingWindow=false`인 경우 캐시/버킷화 미적용
 
 5. **테스트 코드 추가**
    - 위 7장에 정의된 주요 시나리오에 대한 단위/통합 테스트 작성
    - 최소:
      - 캐시 히트/미스
-     - 양자화 적용 여부
+     - 버킷화 적용 여부
      - Redis 장애 fallback
 
 ---
 
 이 문서는 **현재 “실시간 ES 집계만 있는 상태”**를 기준으로,  
-**추가로 “10초 양자화 + 짧은 TTL Redis 캐시”를 도입하기 위한 설계**만을 다룬다.
+**추가로 “10초 버킷화 + 짧은 TTL Redis 캐시”를 도입하기 위한 설계**만을 다룬다.
 
 롤업 인덱스(1분 버킷) 도입은 별도의 `rollup_metrics_spec.md`에서 정의한 대로 독립적으로 진행할 수 있으며,  
 최종적으로는:
 
-- 짧은 구간(예: 최근 5~15분): **raw 집계 + 이 명세의 캐시/양자화**
+- 짧은 구간(예: 최근 5~15분): **raw 집계 + 이 명세의 캐시/버킷화**
 - 긴 구간(예: 1시간 이상): **롤업 인덱스 기반 조회 + 별도 캐시**
 
 로 조합해서 사용하면 된다.

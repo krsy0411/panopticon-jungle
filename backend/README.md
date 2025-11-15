@@ -4,7 +4,7 @@ NestJS 백엔드는 다음 두 이미지로 분리해 ECS에 개별 배포할 �
 
 ```
 backend/src
-├── query-api          # HTTP 요청을 받아 DB(OpenSearch/Timescale)에서 읽기 전용 응답 제공
+├── query-api          # HTTP 요청을 받아 OpenSearch에서 읽기 전용 응답 제공
 ├── stream-processor   # MSK(Kafka)에서 소비한 로그·스팬을 정제 후 저장
 ├── error-stream       # apm.logs.error 토픽을 WebSocket으로 중계해 실시간 알림 제공
 └── shared             # DTO/Repository/인프라 연결 등 공통 모듈
@@ -12,8 +12,8 @@ backend/src
 
 | 이미지 | Docker target | 역할 |
 | ------ | ------------- | ---- |
-| `panopticon-query-api` | `query-api` | 브라우저 요청을 받아 OpenSearch/TimescaleDB를 조회하는 읽기 전용 API |
-| `panopticon-stream-processor` | `stream-processor` | MSK(Kafka) 스트림을 소비해 로그/스팬을 정제 후 OpenSearch/TimescaleDB에 적재 |
+| `panopticon-query-api` | `query-api` | 브라우저 요청을 받아 OpenSearch를 조회하는 읽기 전용 API |
+| `panopticon-stream-processor` | `stream-processor` | MSK(Kafka) 스트림을 소비해 로그/스팬을 정제 후 OpenSearch에 적재 |
 | `panopticon-error-stream` | `error-stream` | `apm.logs.error` 토픽을 구독해 WebSocket 으로 프런트엔드(NEXT.js)에 실시간 전송 |
 
 ### Build & Push
@@ -36,7 +36,7 @@ docker push <account>.dkr.ecr.<region>.amazonaws.com/panopticon-query-api:latest
 docker push <account>.dkr.ecr.<region>.amazonaws.com/panopticon-stream-processor:latest
 ```
 
-ECS 태스크 정의에서는 각 이미지를 별도 컨테이너로 등록하고, MSK/OpenSearch/Timescale 등 매니지드 엔드포인트를 환경 변수로 주입하면 됩니다. 로컬 개발 시에는 `infra/docker-compose.yml`을 이용해 동일한 이미지를 Compose 빌드 타깃으로 실행할 수 있습니다.
+ECS 태스크 정의에서는 각 이미지를 별도 컨테이너로 등록하고, MSK/OpenSearch 등 매니지드 엔드포인트를 환경 변수로 주입하면 됩니다. 로컬 개발 시에는 `infra/docker-compose.yml`을 이용해 동일한 이미지를 Compose 빌드 타깃으로 실행할 수 있습니다.
 
 ### NPM Scripts
 
