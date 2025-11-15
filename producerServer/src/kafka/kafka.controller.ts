@@ -55,13 +55,32 @@ export class KafkaController {
       } else {
         spans = Array.isArray(data) ? data : [data];
       }
-
+      // span은 파싱이 된 상태
       await this.kafkaService.sendSpans(spans);
       this.logger.log(`Sent ${spans.length} span(s) to Kafka`);
     } catch (error) {
       this.logger.error('Failed to ingest logs', error);
       throw error;
     }
+  }
+
+  @Post('dummy/logs')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async getDummyLogs(@Body() data: any) {
+    const logData = Array.isArray(data) ? data : [data];
+    // 이때 로그데이터는 파싱이 된 상태
+    await this.kafkaService.sendLogs(logData);
+
+    return { success: true };
+  }
+
+  @Post('dummy/traces')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async getDummyTraces(@Body() data: any) {
+    const logData = Array.isArray(data) ? data : [data];
+    await this.kafkaService.sendLogs(logData);
+
+    return { success: true };
   }
 
   /**

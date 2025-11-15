@@ -96,22 +96,13 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `Kafka configured for ${isProduction ? 'production (MSK)' : 'development (local)'} in region: ${region}`,
     );
-    this.logger.log(
-      'Producer settings - acks: 1, compression: none (per message), batch: disabled',
-    );
   }
 
   async onModuleInit() {
     try {
-      await this.admin.connect();
-      this.logger.log('Kafka Admin connected successfully');
-
       await this.producer.connect();
       this.isConnected = true;
       this.logger.log('Kafka Producer connected successfully');
-
-      // 토픽 생성 (로컬 테스트용)
-      // await this.createTopics();
     } catch (error) {
       this.logger.error('Failed to connect Kafka Producer', error);
       throw error;
@@ -123,9 +114,6 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       await this.producer.disconnect();
       this.isConnected = false;
       this.logger.log('Kafka Producer disconnected');
-
-      await this.admin.disconnect();
-      this.logger.log('Kafka Admin disconnected');
     } catch (error) {
       this.logger.error('Failed to disconnect Kafka Producer/Admin', error);
     }
@@ -159,10 +147,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       };
 
       const result = await this.producer.send(record);
-      this.logger.debug(
-        `Message sent to topic ${config.topic} (acks=${config.acks}, compression=none):`,
-        result,
-      );
+      this.logger.debug(result);
       return result;
     } catch (error) {
       this.logger.error(
@@ -176,26 +161,15 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   /**
    * Log 데이터 전송 (파티션 키: service_name)
    */
-  async sendLogs(logData: any | any[]) {
-    const logs = Array.isArray(logData) ? logData : [logData];
-    const normalLog = logs.filter((log) => log.service_name);
+  async sendLogs(logData: any[]) {
+    const normalLog = logData.filter((log) => log.service_name);
+
     const messages = normalLog.map((log) => ({
       key: log.service_name || 'unknown', // 파티션 키: service_name
       value: JSON.stringify(log),
     }));
 
     return this.sendMessage('logs', messages);
-  }
-
-  async sendHttpLogs(httpLogData: any | any[]) {
-    const httpLogs = Array.isArray(httpLogData) ? httpLogData : [httpLogData];
-    const normalLog = httpLogs.filter((log) => log.service_name);
-    const messages = normalLog.map((log) => ({
-      key: log.service_name || 'unknown', // 파티션 키: service_name
-      value: JSON.stringify(log),
-    }));
-
-    return this.sendMessage('spans', messages);
   }
   /**
    * Span 데이터 전송 (파티션 키: trace_id)
@@ -209,69 +183,51 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       value: JSON.stringify(span),
     }));
 
-    return this.sendMessage('span', messages);
+    return this.sendMessage('spans', messages);
   }
 
-  /**
-   * Trace 데이터 전송 (파티션 키: trace_id)
-   */
-  async sendTraces(traceData: any | any[]) {
-    const traces = Array.isArray(traceData) ? traceData : [traceData];
-    const normalTrace = traces.filter((trace) => trace.trace_id);
+  // /**
+  //  * 토픽 생성 (로컬 테스트용)
+  //  * - 각 토픽: 파티션 6개, retention 3일
+  //  * - 현재는 UI 에서 해결가능
+  //  */
+  // async createTopics() {
+  //   try {
+  //     const existingTopics = await this.admin.listTopics();
+  //     const topicsToCreate = [];
 
-    const messages = normalTrace.map((trace) => ({
-      key: trace.trace_id || Date.now().toString(), // 파티션 키: trace_id
-      value: JSON.stringify(trace),
-    }));
+  //     // log, trace, metric 토픽 생성
+  //     const topics = ['apm.logs', 'apm.spans', 'apm.logs.error'];
+  //     for (const topic of topics) {
+  //       if (!existingTopics.includes(topic)) {
+  //         topicsToCreate.push({
+  //           topic,
+  //           numPartitions: 4, // 파티션 4개
+  //           replicationFactor: 1, // 로컬 브로커 1개
+  //           configEntries: [
+  //             {
+  //               name: 'retention.ms',
+  //               value: String(3 * 24 * 60 * 60 * 1000), // 3일 (밀리초)
+  //             },
+  //           ],
+  //         });
+  //       }
+  //     }
 
-    return this.sendMessage('span', messages);
-  }
-
-  isProducerConnected(): boolean {
-    return this.isConnected;
-  }
-
-  /**
-   * 토픽 생성 (로컬 테스트용)
-   * - 각 토픽: 파티션 6개, retention 3일
-   */
-  async createTopics() {
-    try {
-      const existingTopics = await this.admin.listTopics();
-      const topicsToCreate = [];
-
-      // log, trace, metric 토픽 생성
-      const topics = ['apm.logs', 'apm.spans', 'apm.logs.error'];
-      for (const topic of topics) {
-        if (!existingTopics.includes(topic)) {
-          topicsToCreate.push({
-            topic,
-            numPartitions: 4, // 파티션 4개
-            replicationFactor: 1, // 로컬 브로커 1개
-            configEntries: [
-              {
-                name: 'retention.ms',
-                value: String(3 * 24 * 60 * 60 * 1000), // 3일 (밀리초)
-              },
-            ],
-          });
-        }
-      }
-
-      if (topicsToCreate.length > 0) {
-        await this.admin.createTopics({
-          topics: topicsToCreate,
-          waitForLeaders: true,
-        });
-        this.logger.log(
-          `Created topics: ${topicsToCreate.map((t) => t.topic).join(', ')} (partitions: 6, retention: 3 days, replication: 1)`,
-        );
-      } else {
-        this.logger.log('All required topics already exist');
-      }
-    } catch (error) {
-      this.logger.error('Failed to create topics', error);
-      // 토픽 생성 실패는 앱 시작을 막지 않음
-    }
-  }
+  //     if (topicsToCreate.length > 0) {
+  //       await this.admin.createTopics({
+  //         topics: topicsToCreate,
+  //         waitForLeaders: true,
+  //       });
+  //       this.logger.log(
+  //         `Created topics: ${topicsToCreate.map((t) => t.topic).join(', ')} (partitions: 6, retention: 3 days, replication: 1)`,
+  //       );
+  //     } else {
+  //       this.logger.log('All required topics already exist');
+  //     }
+  //   } catch (error) {
+  //     this.logger.error('Failed to create topics', error);
+  //     // 토픽 생성 실패는 앱 시작을 막지 않음
+  //   }
+  // }
 }
