@@ -180,14 +180,16 @@ export class ServiceMetricsService {
     return {
       mark: (event) => {
         const elapsed = Date.now() - startedAt;
+        const label =
+          event === "es_query" ? "ES 집계 완료" : "응답 데이터 정리";
         this.logger.debug(
-          `metrics-profile event=${event} service=${normalized.serviceName} env=${normalized.environment ?? "all"} from=${normalized.from} to=${normalized.to} elapsed=${elapsed}ms`,
+          `메트릭 성능(${label}) service=${normalized.serviceName} env=${normalized.environment ?? "all"} from=${normalized.from} to=${normalized.to} elapsed=${elapsed}ms`,
         );
       },
       logSummary: (responseLength) => {
         const elapsed = Date.now() - startedAt;
         this.logger.log(
-          `metrics-total service=${normalized.serviceName} env=${normalized.environment ?? "all"} window=${normalized.from}~${normalized.to} metrics=${responseLength} elapsed=${elapsed}ms`,
+          `메트릭 총 소요 service=${normalized.serviceName} env=${normalized.environment ?? "all"} window=${normalized.from}~${normalized.to} metrics=${responseLength}건 elapsed=${elapsed}ms`,
         );
       },
     };
