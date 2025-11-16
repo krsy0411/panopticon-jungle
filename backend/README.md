@@ -66,3 +66,8 @@ Kafka 컨슈머 처리량을 주기적으로 파악하고 싶다면 다음 환�
 | `STREAM_THROUGHPUT_BATCH_SIZE` | `5000` | 누적 처리 건수가 이 값 이상 증가했을 때만 처리량 로그를 남깁니다. 0 이하로 설정하면 기능이 꺼집니다. |
 | `STREAM_THROUGHPUT_MIN_INTERVAL_MS` | `10000` | 처리량 로그 사이의 최소 간격(ms). 너무 잦은 로깅을 방지합니다. |
 | `STREAM_THROUGHPUT_TARGET_COUNT` | _(옵션)_ | 총 N건 처리 완료까지의 예상 소요 시간을 로그에 함께 표시합니다. |
+
+### Query API 성능 프로파일링
+
+서비스 메트릭 엔드포인트(`GET /services/{serviceName}/metrics`)가 Elasticsearch 집계를 수행하는데 걸린 시간을 확인하려면 `SERVICE_METRICS_PROFILE=true`를 설정하면 됩니다.  
+활성화 시 `metrics-profile`(중간 단계)와 `metrics-total`(전체 소요시간) 로그가 콘솔에 출력됩니다.

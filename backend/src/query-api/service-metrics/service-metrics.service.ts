@@ -1,7 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { SpanRepository } from "../../shared/apm/spans/span.repository";
 import type { ServiceMetricBucket } from "../../shared/apm/spans/span.repository";
-import type { MetricResponse } from "./service-metric.types";
+import type {
+  MetricResponse,
+  AggregationProfiler,
+} from "./service-metric.types";
 import type { ServiceMetricsQueryDto } from "./dto/service-metrics-query.dto";
 import { MetricsQueryNormalizerService } from "./metrics-query-normalizer.service";
 import type { NormalizedServiceMetricsQuery } from "./normalized-service-metrics-query.type";
@@ -15,6 +18,8 @@ import { MetricsCacheService } from "./metrics-cache.service";
 @Injectable()
 export class ServiceMetricsService {
   private readonly logger = new Logger(ServiceMetricsService.name);
+  private readonly profilingEnabled =
+    (process.env.SERVICE_METRICS_PROFILE ?? "false").toLowerCase() === "true";
 
   constructor(
     private readonly spanRepository: SpanRepository,
@@ -31,6 +36,7 @@ export class ServiceMetricsService {
     const cacheEnabled =
       normalized.shouldUseCache && this.metricsCache.isEnabled();
     let cacheKey: string | null = null;
+    const profiler = this.createProfiler(normalized);
 
     if (cacheEnabled) {
       // 캐시가 활성화된 경우 먼저 Redis에서 결과를 조회한다.
@@ -47,6 +53,8 @@ export class ServiceMetricsService {
       );
     }
 
+    profiler?.mark("es_query");
+
     const params = this.toMetricParams(normalized);
     const buckets = await this.spanRepository.aggregateServiceMetrics(params);
     const metrics = this.toMetricResponses(
@@ -58,6 +66,9 @@ export class ServiceMetricsService {
     const filteredMetrics = normalized.metric
       ? metrics.filter((item) => item.metric_name === normalized.metric)
       : metrics;
+
+    profiler?.mark("response_ready");
+    profiler?.logSummary(filteredMetrics.length);
 
     if (cacheEnabled && cacheKey) {
       // ES에서 구한 결과를 짧은 TTL로 Redis에 적재한다.
@@ -157,5 +168,28 @@ export class ServiceMetricsService {
 
   private baseLabels(environment?: string): Record<string, string> | undefined {
     return environment ? { environment } : undefined;
+  }
+
+  private createProfiler(
+    normalized: NormalizedServiceMetricsQuery,
+  ): AggregationProfiler | null {
+    if (!this.profilingEnabled) {
+      return null;
+    }
+    const startedAt = Date.now();
+    return {
+      mark: (event) => {
+        const elapsed = Date.now() - startedAt;
+        this.logger.debug(
+          `metrics-profile event=${event} service=${normalized.serviceName} env=${normalized.environment ?? "all"} from=${normalized.from} to=${normalized.to} elapsed=${elapsed}ms`,
+        );
+      },
+      logSummary: (responseLength) => {
+        const elapsed = Date.now() - startedAt;
+        this.logger.log(
+          `metrics-total service=${normalized.serviceName} env=${normalized.environment ?? "all"} window=${normalized.from}~${normalized.to} metrics=${responseLength} elapsed=${elapsed}ms`,
+        );
+      },
+    };
   }
 }
