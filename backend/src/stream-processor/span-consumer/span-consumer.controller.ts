@@ -4,6 +4,7 @@ import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
 import { SpanIngestService } from "../apm/span-ingest/span-ingest.service";
 import { SpanEventDto } from "../../shared/apm/spans/dto/span-event.dto";
+import { buildThroughputTracker } from "../common/throughput-tracker";
 
 class InvalidSpanEventError extends Error {
   constructor(message: string) {
@@ -18,6 +19,10 @@ class InvalidSpanEventError extends Error {
 @Controller()
 export class SpanConsumerController {
   private readonly logger = new Logger(SpanConsumerController.name);
+  private readonly throughputTracker = buildThroughputTracker(
+    this.logger,
+    "apm.spans",
+  );
 
   constructor(private readonly spanIngestService: SpanIngestService) {}
 
@@ -32,6 +37,7 @@ export class SpanConsumerController {
     try {
       const dto = this.parsePayload(value);
       await this.spanIngestService.ingest(dto);
+      this.throughputTracker.markProcessed();
       this.logger.debug(
         `스팬이 색인되었습니다. topic=${context.getTopic()} partition=${context.getPartition()}`,
       );

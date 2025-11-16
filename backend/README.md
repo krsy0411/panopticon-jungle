@@ -56,3 +56,13 @@ ECS 태스크 정의에서는 각 이미지를 별도 컨테이너로 등록하�
 | `ERROR_STREAM_WS_ORIGINS` | 허용할 Origin 목록. 콤마로 구분 (기본 모든 Origin 허용) |
 | `ERROR_STREAM_WS_PATH` | WebSocket 엔드포인트 경로 (기본 `/ws/error-logs`) |
 - `npm run test:app-log` / `npm run test:http-log`: 로컬에서 샘플 Kafka 메시지 전송 (필요 시 `KAFKA_BROKERS_LOCAL=localhost:9092` 등으로 브로커 주소를 덮어쓰세요)
+
+### Stream Processor 성능 로깅
+
+Kafka 컨슈머 처리량을 주기적으로 파악하고 싶다면 다음 환경 변수를 설정하세요. 값이 없으면 기본 설정(가벼운 샘플링)으로 동작합니다.
+
+| 변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `STREAM_THROUGHPUT_BATCH_SIZE` | `5000` | 누적 처리 건수가 이 값 이상 증가했을 때만 처리량 로그를 남깁니다. 0 이하로 설정하면 기능이 꺼집니다. |
+| `STREAM_THROUGHPUT_MIN_INTERVAL_MS` | `10000` | 처리량 로그 사이의 최소 간격(ms). 너무 잦은 로깅을 방지합니다. |
+| `STREAM_THROUGHPUT_TARGET_COUNT` | _(옵션)_ | 총 N건 처리 완료까지의 예상 소요 시간을 로그에 함께 표시합니다. |
