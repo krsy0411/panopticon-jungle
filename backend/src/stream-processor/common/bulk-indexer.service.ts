@@ -56,6 +56,7 @@ export class BulkIndexerService implements OnModuleDestroy {
 
   /**
    * Bulk 버퍼에 문서를 추가하고 조건을 만족하면 즉시 플러시한다.
+   * - enqueue 를 기다리면 해당 문서가 성공적으로 ES에 저장된 뒤 resolve 된다.
    */
   enqueue(streamKey: LogStreamKey, document: BaseApmDocument): Promise<void> {
     const indexName = this.storage.getDataStream(streamKey);
@@ -83,6 +84,10 @@ export class BulkIndexerService implements OnModuleDestroy {
 
   /**
    * 버퍼가 비어있지 않다면 즉시 flush를 수행한다.
+   */
+  /**
+   * 버퍼가 차거나 타이머가 만료되었을 때 실제 bulk 요청을 트리거한다.
+   * 동시 플러시 한도에 걸리면 pending 플래그만 세우고 이후에 재시도한다.
    */
   private triggerFlush(): void {
     if (this.buffer.length === 0) {
@@ -119,6 +124,9 @@ export class BulkIndexerService implements OnModuleDestroy {
       });
   }
 
+  /**
+   * 버퍼 건수 혹은 바이트 수가 임계값을 초과했는지 검사한다.
+   */
   private shouldFlushBySize(): boolean {
     return (
       this.buffer.length >= this.maxBatchSize ||
@@ -126,6 +134,9 @@ export class BulkIndexerService implements OnModuleDestroy {
     );
   }
 
+  /**
+   * 일정 시간 동안 문서가 적게 들어오는 경우를 대비해 타이머 기반 플러시를 예약한다.
+   */
   private ensureFlushTimer(): void {
     if (this.flushTimer || this.buffer.length === 0) {
       return;
@@ -136,6 +147,9 @@ export class BulkIndexerService implements OnModuleDestroy {
     }, this.flushIntervalMs);
   }
 
+  /**
+   * 현재 버퍼를 비우고 배치로 반환한다. 플러시 타이머도 함께 초기화한다.
+   */
   private drainBuffer(): BufferedItem[] {
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
@@ -147,6 +161,9 @@ export class BulkIndexerService implements OnModuleDestroy {
     return batch;
   }
 
+  /**
+   * 실제 Elasticsearch `_bulk` 호출을 수행하고, 각 문서의 Promise를 resolve/reject 한다.
+   */
   private async executeFlush(batch: BufferedItem[]): Promise<void> {
     const operations = this.buildOperations(batch);
     try {
@@ -174,6 +191,9 @@ export class BulkIndexerService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * Bulk API가 요구하는 `create`/`document` 쌍의 operations 배열을 생성한다.
+   */
   private buildOperations(
     batch: BufferedItem[],
   ): Array<Record<string, unknown>> {
@@ -186,6 +206,9 @@ export class BulkIndexerService implements OnModuleDestroy {
     return operations;
   }
 
+  /**
+   * `_bulk` 응답 내 첫 번째 에러 내용을 추출하여 로그로 남긴다.
+   */
   private logBulkError(response: { items?: Array<Record<string, any>> }): void {
     const firstError = response.items
       ?.map((item) => Object.values(item)[0])
@@ -199,6 +222,9 @@ export class BulkIndexerService implements OnModuleDestroy {
     }
   }
 
+  /**
+   * 프로세스 종료 시 남은 버퍼/플러시가 모두 끝날 때까지 기다린다.
+   */
   private async flushRemaining(): Promise<void> {
     while (this.buffer.length > 0 || this.inFlightFlushes > 0) {
       if (this.buffer.length > 0) {
