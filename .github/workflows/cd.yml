@@ -3,7 +3,7 @@ name: CD - Build & Deploy
 on:
   push:
     branches:
-      - feature/redis
+      - feature/traces-drilldown
       # - main
   workflow_dispatch:
 

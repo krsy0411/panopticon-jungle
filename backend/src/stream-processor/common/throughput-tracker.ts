@@ -11,6 +11,7 @@ interface ThroughputTrackerOptions {
  * Kafka 컨슈머 처리량을 저비용으로 관찰하기 위한 유틸리티.
  * - batchSize 건 이상 처리했을 때만 로그를 남겨 부담을 줄인다.
  * - 전체/최근 처리량을 모두 기록해 추세를 쉽게 파악할 수 있다.
+ * - 로그 형식: `처리량[label] 총 N건, 경과 XX, 전체 평균 X건/s, 최근 Y건/s, ETA`
  */
 export class ThroughputTracker {
   private readonly enabled: boolean;
@@ -26,6 +27,7 @@ export class ThroughputTracker {
     this.enabled = Number.isFinite(options.batchSize) && options.batchSize > 0;
   }
 
+  // 메시지를 delta 만큼 처리했음을 기록하고, 샘플 조건을 만족하면 처리량 로그를 남긴다.
   markProcessed(delta = 1): void {
     if (!this.enabled) {
       return;
