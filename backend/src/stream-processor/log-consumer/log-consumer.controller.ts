@@ -5,6 +5,7 @@ import { validateSync } from "class-validator";
 import { LogIngestService } from "../apm/log-ingest/log-ingest.service";
 import { LogEventDto } from "../../shared/apm/logs/dto/log-event.dto";
 import { ErrorLogForwarderService } from "./error-log-forwarder.service";
+import { buildThroughputTracker } from "../common/throughput-tracker";
 
 class InvalidLogEventError extends Error {
   constructor(message: string) {
@@ -19,6 +20,10 @@ class InvalidLogEventError extends Error {
 @Controller()
 export class LogConsumerController {
   private readonly logger = new Logger(LogConsumerController.name);
+  private readonly throughputTracker = buildThroughputTracker(
+    this.logger,
+    "apm.logs",
+  );
 
   constructor(
     private readonly logIngestService: LogIngestService,
@@ -37,6 +42,7 @@ export class LogConsumerController {
       const dto = this.parsePayload(value);
       await this.logIngestService.ingest(dto);
       await this.errorLogForwarder.forward(dto);
+      this.throughputTracker.markProcessed();
       this.logger.debug(
         `로그가 색인되었습니다. topic=${context.getTopic()} partition=${context.getPartition()}`,
       );

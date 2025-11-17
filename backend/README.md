@@ -4,7 +4,7 @@ NestJS 백엔드는 다음 두 이미지로 분리해 ECS에 개별 배포할 �
 
 ```
 backend/src
-├── query-api          # HTTP 요청을 받아 DB(OpenSearch/Timescale)에서 읽기 전용 응답 제공
+├── query-api          # HTTP 요청을 받아 OpenSearch에서 읽기 전용 응답 제공
 ├── stream-processor   # MSK(Kafka)에서 소비한 로그·스팬을 정제 후 저장
 ├── error-stream       # apm.logs.error 토픽을 WebSocket으로 중계해 실시간 알림 제공
 └── shared             # DTO/Repository/인프라 연결 등 공통 모듈
@@ -12,8 +12,8 @@ backend/src
 
 | 이미지 | Docker target | 역할 |
 | ------ | ------------- | ---- |
-| `panopticon-query-api` | `query-api` | 브라우저 요청을 받아 OpenSearch/TimescaleDB를 조회하는 읽기 전용 API |
-| `panopticon-stream-processor` | `stream-processor` | MSK(Kafka) 스트림을 소비해 로그/스팬을 정제 후 OpenSearch/TimescaleDB에 적재 |
+| `panopticon-query-api` | `query-api` | 브라우저 요청을 받아 OpenSearch를 조회하는 읽기 전용 API |
+| `panopticon-stream-processor` | `stream-processor` | MSK(Kafka) 스트림을 소비해 로그/스팬을 정제 후 OpenSearch에 적재 |
 | `panopticon-error-stream` | `error-stream` | `apm.logs.error` 토픽을 구독해 WebSocket 으로 프런트엔드(NEXT.js)에 실시간 전송 |
 
 ### Build & Push
@@ -36,7 +36,7 @@ docker push <account>.dkr.ecr.<region>.amazonaws.com/panopticon-query-api:latest
 docker push <account>.dkr.ecr.<region>.amazonaws.com/panopticon-stream-processor:latest
 ```
 
-ECS 태스크 정의에서는 각 이미지를 별도 컨테이너로 등록하고, MSK/OpenSearch/Timescale 등 매니지드 엔드포인트를 환경 변수로 주입하면 됩니다. 로컬 개발 시에는 `infra/docker-compose.yml`을 이용해 동일한 이미지를 Compose 빌드 타깃으로 실행할 수 있습니다.
+ECS 태스크 정의에서는 각 이미지를 별도 컨테이너로 등록하고, MSK/OpenSearch 등 매니지드 엔드포인트를 환경 변수로 주입하면 됩니다. 로컬 개발 시에는 `infra/docker-compose.yml`을 이용해 동일한 이미지를 Compose 빌드 타깃으로 실행할 수 있습니다.
 
 ### NPM Scripts
 
@@ -56,3 +56,18 @@ ECS 태스크 정의에서는 각 이미지를 별도 컨테이너로 등록하�
 | `ERROR_STREAM_WS_ORIGINS` | 허용할 Origin 목록. 콤마로 구분 (기본 모든 Origin 허용) |
 | `ERROR_STREAM_WS_PATH` | WebSocket 엔드포인트 경로 (기본 `/ws/error-logs`) |
 - `npm run test:app-log` / `npm run test:http-log`: 로컬에서 샘플 Kafka 메시지 전송 (필요 시 `KAFKA_BROKERS_LOCAL=localhost:9092` 등으로 브로커 주소를 덮어쓰세요)
+
+### Stream Processor 성능 로깅
+
+Kafka 컨슈머 처리량을 주기적으로 파악하고 싶다면 다음 환경 변수를 설정하세요. 값이 없으면 기본 설정(가벼운 샘플링)으로 동작합니다.
+
+| 변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `STREAM_THROUGHPUT_BATCH_SIZE` | `5000` | 누적 처리 건수가 이 값 이상 증가했을 때만 처리량 로그를 남깁니다. 0 이하로 설정하면 기능이 꺼집니다. |
+| `STREAM_THROUGHPUT_MIN_INTERVAL_MS` | `10000` | 처리량 로그 사이의 최소 간격(ms). 너무 잦은 로깅을 방지합니다. |
+| `STREAM_THROUGHPUT_TARGET_COUNT` | _(옵션)_ | 총 N건 처리 완료까지의 예상 소요 시간을 로그에 함께 표시합니다. |
+
+### Query API 성능 프로파일링
+
+서비스 메트릭 엔드포인트(`GET /services/{serviceName}/metrics`)가 Elasticsearch 집계를 수행하는데 걸린 시간을 확인하려면 `SERVICE_METRICS_PROFILE=true`를 설정하면 됩니다.  
+활성화 시 `metrics-profile`(중간 단계)와 `metrics-total`(전체 소요시간) 로그가 콘솔에 출력됩니다.
