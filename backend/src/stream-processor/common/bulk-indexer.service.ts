@@ -38,10 +38,10 @@ export class BulkIndexerService implements OnModuleDestroy {
     this.client = this.storage.getClient();
     this.maxBatchSize = Math.max(
       1,
-      Number.parseInt(process.env.BULK_BATCH_SIZE ?? "500", 10),
+      Number.parseInt(process.env.BULK_BATCH_SIZE ?? "1000", 10),
     );
     const byteLimitMb = Number.parseFloat(
-      process.env.BULK_BATCH_BYTES_MB ?? "5",
+      process.env.BULK_BATCH_BYTES_MB ?? "10",
     );
     this.maxBatchBytes = Math.max(1024, Math.floor(byteLimitMb * 1024 * 1024));
     this.flushIntervalMs = Math.max(
