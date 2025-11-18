@@ -13,7 +13,7 @@ export class LogIngestService {
 
   constructor(private readonly bulkIndexer: BulkIndexerService) {}
 
-  async ingest(dto: LogEventDto): Promise<void> {
+  ingest(dto: LogEventDto): void {
     const document: LogDocument = {
       "@timestamp": this.resolveTimestamp(dto.timestamp),
       type: "log",
@@ -30,8 +30,8 @@ export class LogIngestService {
       ingestedAt: new Date().toISOString(),
     };
 
-    // 로그 문서를 bulk 버퍼에 적재하고 flush가 끝날 때까지 기다린다.
-    await this.bulkIndexer.enqueue(LogIngestService.STREAM_KEY, document);
+    // 로그 문서를 bulk 버퍼에 적재하고 즉시 반환해 Kafka 처리를 막지 않는다.
+    this.bulkIndexer.enqueue(LogIngestService.STREAM_KEY, document);
   }
 
   /**

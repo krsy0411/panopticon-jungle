@@ -40,7 +40,7 @@ export class LogConsumerController {
 
     try {
       const dto = this.parsePayload(value);
-      await this.logIngestService.ingest(dto);
+      this.logIngestService.ingest(dto);
       await this.errorLogForwarder.forward(dto);
       this.throughputTracker.markProcessed();
       this.logger.debug(

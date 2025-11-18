@@ -13,7 +13,7 @@ export class SpanIngestService {
 
   constructor(private readonly bulkIndexer: BulkIndexerService) {}
 
-  async ingest(dto: SpanEventDto): Promise<void> {
+  ingest(dto: SpanEventDto): void {
     const document: SpanDocument = {
       "@timestamp": this.resolveTimestamp(dto.timestamp),
       type: "span",
@@ -33,8 +33,8 @@ export class SpanIngestService {
       ingestedAt: new Date().toISOString(),
     };
 
-    // 스팬 문서를 BulkIndexer 버퍼에 적재하여 색인 지연 시간을 줄인다.
-    await this.bulkIndexer.enqueue(SpanIngestService.STREAM_KEY, document);
+    // 스팬 문서를 BulkIndexer 버퍼에 적재해 Kafka 처리가 지연되지 않도록 한다.
+    this.bulkIndexer.enqueue(SpanIngestService.STREAM_KEY, document);
   }
 
   /**

@@ -10,8 +10,6 @@ interface BufferedItem {
   index: string;
   document: BaseApmDocument;
   size: number;
-  resolve: () => void;
-  reject: (error: Error) => void;
 }
 
 /**
@@ -56,24 +54,22 @@ export class BulkIndexerService implements OnModuleDestroy {
 
   /**
    * Bulk 버퍼에 문서를 추가하고 조건을 만족하면 즉시 플러시한다.
-   * - enqueue 를 기다리면 해당 문서가 성공적으로 ES에 저장된 뒤 resolve 된다.
+   * - flush 완료를 기다리지 않으므로 Kafka 컨슈머가 block 되지 않는다.
    */
-  enqueue(streamKey: LogStreamKey, document: BaseApmDocument): Promise<void> {
+  enqueue(streamKey: LogStreamKey, document: BaseApmDocument): void {
     const indexName = this.storage.getDataStream(streamKey);
     const size =
       Buffer.byteLength(JSON.stringify({ index: { _index: indexName } })) +
       Buffer.byteLength(JSON.stringify(document)) +
       2;
 
-    return new Promise<void>((resolve, reject) => {
-      this.buffer.push({ index: indexName, document, size, resolve, reject });
-      this.bufferedBytes += size;
-      if (this.shouldFlushBySize()) {
-        this.triggerFlush();
-      } else {
-        this.ensureFlushTimer();
-      }
-    });
+    this.buffer.push({ index: indexName, document, size });
+    this.bufferedBytes += size;
+    if (this.shouldFlushBySize()) {
+      this.triggerFlush();
+    } else {
+      this.ensureFlushTimer();
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -104,24 +100,17 @@ export class BulkIndexerService implements OnModuleDestroy {
     }
 
     this.inFlightFlushes += 1;
-    void this.executeFlush(batch)
-      .catch((error) => {
-        this.logger.error(
-          "Bulk 색인 도중 예기치 않은 오류가 발생했습니다.",
-          error instanceof Error ? error.stack : String(error),
-        );
-      })
-      .finally(() => {
-        this.inFlightFlushes -= 1;
-        if (this.pendingFlush) {
-          this.pendingFlush = false;
-          this.triggerFlush();
-        } else if (this.shouldFlushBySize()) {
-          this.triggerFlush();
-        } else if (this.buffer.length > 0) {
-          this.ensureFlushTimer();
-        }
-      });
+    void this.executeFlush(batch).finally(() => {
+      this.inFlightFlushes -= 1;
+      if (this.pendingFlush) {
+        this.pendingFlush = false;
+        this.triggerFlush();
+      } else if (this.shouldFlushBySize()) {
+        this.triggerFlush();
+      } else if (this.buffer.length > 0) {
+        this.ensureFlushTimer();
+      }
+    });
   }
 
   /**
@@ -170,23 +159,22 @@ export class BulkIndexerService implements OnModuleDestroy {
       const response = await this.client.bulk({ operations });
       if (response.errors) {
         this.logBulkError(response);
-        const error = new Error("Bulk 색인 중 일부 문서가 실패했습니다.");
-        batch.forEach((item) => item.reject(error));
-        return;
+        this.logger.warn(
+          `Bulk 색인 중 일부 문서가 실패했습니다. batch=${batch.length} took=${response.took ?? 0}ms`,
+        );
+      } else {
+        this.logger.debug(
+          `Bulk 색인 완료 batch=${batch.length} took=${response.took ?? 0}ms`,
+        );
       }
-      batch.forEach((item) => item.resolve());
-      this.logger.debug(
-        `Bulk 색인 완료 batch=${batch.length} took=${response.took ?? 0}ms`,
-      );
     } catch (error) {
       const wrapped =
         error instanceof Error
           ? error
           : new Error(`Bulk 색인 실패: ${String(error)}`);
-      batch.forEach((item) => item.reject(wrapped));
       this.logger.warn(
-        "Bulk 색인 요청이 실패했습니다. Kafka 컨슈머가 재시도합니다.",
-        wrapped.stack,
+        "Bulk 색인 요청이 실패했습니다. Kafka 컨슈머는 메시지를 계속 처리합니다.",
+        wrapped instanceof Error ? wrapped.stack : String(wrapped),
       );
     }
   }
