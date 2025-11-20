@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/aggregator",
+    "rootDir": "./src",
+    "tsBuildInfoFile": "./dist/tsconfig.aggregator.tsbuildinfo"
+  },
+  "include": [
+    "src/aggregator/**/*",
+    "src/shared/common/**/*",
+    "src/shared/apm/**/*",
+    "src/shared/logs/**/*",
+    "src/types/**/*"
+  ],
+  "exclude": [
+    "src/query-api/**/*",
+    "src/stream-processor/**/*",
+    "src/error-stream/**/*",
+    "test",
+    "dist",
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}
