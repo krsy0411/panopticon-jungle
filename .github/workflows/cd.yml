@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - feature/bulk-v3
-      # - main
+      - feat/producer-rps-optimization
   workflow_dispatch:
 
 env:
