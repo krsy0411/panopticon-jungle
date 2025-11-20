@@ -5,13 +5,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  Kafka,
-  Producer,
-  ProducerRecord,
-  Admin,
-  CompressionTypes,
-} from 'kafkajs';
+import { Kafka, Producer, ProducerRecord, CompressionTypes } from 'kafkajs';
 
 // 토픽별 설정
 interface TopicConfig {
@@ -24,7 +18,6 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(KafkaService.name);
   private kafka: Kafka;
   private producer: Producer;
-  private admin: Admin;
   private isConnected = false;
 
   // 토픽별 설정 정의
@@ -91,8 +84,6 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
       maxInFlightRequests: 1,
     });
 
-    this.admin = this.kafka.admin();
-
     this.logger.log(
       `Kafka configured for ${isProduction ? 'production (MSK)' : 'development (local)'} in region: ${region}`,
     );
@@ -120,7 +111,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * 토픽별 설정을 적용하여 메시지 전송
+   * 카프카 진입점.
    */
   private async sendMessage(
     topicKey: string,
@@ -165,7 +156,7 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     const normalLog = logData.filter((log) => log.service_name);
 
     const messages = normalLog.map((log) => ({
-      key: log.service_name || 'unknown', // 파티션 키: service_name
+      key: log.trace_id || 'unknown', // 파티션 키: service_name
       value: JSON.stringify(log),
     }));
 
@@ -184,6 +175,9 @@ export class KafkaService implements OnModuleInit, OnModuleDestroy {
     }));
 
     return this.sendMessage('spans', messages);
+  }
+  isProducerConnected() {
+    return this.producer ? true : false;
   }
 
   // /**

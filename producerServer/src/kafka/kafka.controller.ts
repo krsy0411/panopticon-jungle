@@ -35,6 +35,7 @@ export class KafkaController {
   @HttpCode(HttpStatus.ACCEPTED)
   async getlogs(@Body() data: any) {
     const logData = Array.isArray(data) ? data : [data];
+    console.log(JSON.stringify(logData, null, 2));
     await this.kafkaService.sendLogs(logData);
 
     return { success: true };
@@ -46,7 +47,7 @@ export class KafkaController {
   async ingestLogs(@Body() data: any, @Req() req: any) {
     try {
       let spans: any[];
-      console.log('Content-Type:', req.headers['content-type']);
+
       // Protobuf 디코딩 json형태로 반환
       // 간소화된 span으로 변환
       if (req.rawBody) {
@@ -77,8 +78,8 @@ export class KafkaController {
   @Post('dummy/traces')
   @HttpCode(HttpStatus.ACCEPTED)
   async getDummyTraces(@Body() data: any) {
-    const logData = Array.isArray(data) ? data : [data];
-    await this.kafkaService.sendLogs(logData);
+    const traceData = Array.isArray(data) ? data : [data];
+    await this.kafkaService.sendSpans(traceData);
 
     return { success: true };
   }
