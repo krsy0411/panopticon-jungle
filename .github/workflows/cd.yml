@@ -283,21 +283,21 @@ jobs:
           docker push "${ECR_URI}:latest"
           echo "AGGREGATOR_ECR_URI=${ECR_URI}" >> $GITHUB_ENV
 
-      # - name: Register new task definition revision
-      #   run: |
-      #     aws ecs describe-task-definition --task-definition "$AGGREGATOR_TASK_DEFINITION" --query 'taskDefinition' --output json > task-def.json
-      #     IMAGE="${{ env.AGGREGATOR_ECR_URI }}:${GITHUB_SHA}"
-      #     cat task-def.json | jq --arg IMAGE "$IMAGE" --arg NAME "$AGGREGATOR_CONTAINER_NAME" '
-      #       .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
-      #       | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .registeredAt, .registeredBy, .compatibilities)
-      #     ' > new-task-def.json
-      #     NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
-      #     echo "AGGREGATOR_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
+      - name: Register new task definition revision
+        run: |
+          aws ecs describe-task-definition --task-definition "$AGGREGATOR_TASK_DEFINITION" --query 'taskDefinition' --output json > task-def.json
+          IMAGE="${{ env.AGGREGATOR_ECR_URI }}:${GITHUB_SHA}"
+          cat task-def.json | jq --arg IMAGE "$IMAGE" --arg NAME "$AGGREGATOR_CONTAINER_NAME" '
+            .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .registeredAt, .registeredBy, .compatibilities)
+          ' > new-task-def.json
+          NEW_TASK_DEF_ARN=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "AGGREGATOR_TASK_DEF_ARN=$NEW_TASK_DEF_ARN" >> $GITHUB_ENV
 
-      # - name: Trigger ECS deployment
-      #   run: |
-      #     aws ecs update-service \
-      #       --cluster "$AGGREGATOR_ECS_CLUSTER" \
-      #       --service "$AGGREGATOR_ECS_SERVICE" \
-      #       --task-definition "$AGGREGATOR_TASK_DEF_ARN" \
-      #       --force-new-deployment
+      - name: Trigger ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster "$AGGREGATOR_ECS_CLUSTER" \
+            --service "$AGGREGATOR_ECS_SERVICE" \
+            --task-definition "$AGGREGATOR_TASK_DEF_ARN" \
+            --force-new-deployment
