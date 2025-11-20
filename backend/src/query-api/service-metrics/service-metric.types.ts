@@ -10,3 +10,8 @@ export interface MetricResponse {
   environment?: string;
   points: MetricPoint[];
 }
+
+export interface AggregationProfiler {
+  mark(event: string): void;
+  logSummary(responseLength: number): void;
+}

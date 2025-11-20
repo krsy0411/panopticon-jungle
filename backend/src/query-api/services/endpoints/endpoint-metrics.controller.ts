@@ -8,6 +8,7 @@ import {
 } from "@nestjs/swagger";
 import { EndpointMetricsService } from "./endpoint-metrics.service";
 import { EndpointMetricsQueryDto } from "./dto/endpoint-metrics-query.dto";
+import { EndpointTraceQueryDto } from "./dto/endpoint-trace-query.dto";
 
 /**
  * 서비스 엔드포인트 메트릭 조회 컨트롤러
@@ -128,5 +129,101 @@ export class EndpointMetricsController {
     @Query() query: EndpointMetricsQueryDto,
   ) {
     return this.endpointMetrics.getEndpointMetrics(serviceName, query);
+  }
+
+  @Get(":serviceName/endpoints/:endpointName/traces")
+  @ApiOperation({
+    summary: "엔드포인트 문제 trace 탐색",
+    description:
+      "특정 서비스 엔드포인트에 대해 최근 에러 trace 또는 느린 trace를 조회합니다. " +
+      "엔드포인트 테이블에서 drill-down 할 때 사용하도록 설계되었습니다.",
+  })
+  @ApiParam({
+    name: "serviceName",
+    description: "서비스 이름",
+    example: "order-service",
+  })
+  @ApiParam({
+    name: "endpointName",
+    description: "엔드포인트 이름 (Span name / 경로)",
+    example: "POST /api/orders",
+  })
+  @ApiQuery({
+    name: "status",
+    required: false,
+    description: "TRACE 필터 (ERROR 또는 SLOW)",
+    enum: ["ERROR", "SLOW"],
+    example: "ERROR",
+  })
+  @ApiQuery({
+    name: "from",
+    required: false,
+    description: "조회 시작 시각",
+    example: "2024-04-01T00:00:00Z",
+  })
+  @ApiQuery({
+    name: "to",
+    required: false,
+    description: "조회 종료 시각",
+    example: "2024-04-01T00:30:00Z",
+  })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    description: "반환할 trace 수 (기본 20)",
+    example: 20,
+  })
+  @ApiQuery({
+    name: "slow_percentile",
+    required: false,
+    description: "status=SLOW 일 때 사용할 기준 퍼센타일 (기본 95)",
+    example: 95,
+  })
+  @ApiOkResponse({
+    description: "최근 trace 목록",
+    schema: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          traceId: {
+            type: "string",
+            example: "b7e687c6a23b298c085ef90e5e9f889f",
+          },
+          spanId: { type: "string", example: "982dc5757340969a" },
+          timestamp: {
+            type: "string",
+            format: "date-time",
+            example: "2025-11-15T05:15:50.802Z",
+          },
+          durationMs: { type: "number", example: 1850 },
+          status: { type: "string", example: "ERROR" },
+          serviceName: { type: "string", example: "order-service" },
+          environment: { type: "string", example: "prod" },
+        },
+      },
+      example: [
+        {
+          traceId: "b7e687c6a23b298c085ef90e5e9f889f",
+          spanId: "982dc5757340969a",
+          timestamp: "2025-11-15T05:15:50.802Z",
+          durationMs: 1850,
+          status: "ERROR",
+          serviceName: "order-service",
+          environment: "prod",
+        },
+      ],
+    },
+  })
+  async listEndpointTraces(
+    @Param("serviceName") serviceName: string,
+    @Param("endpointName") endpointName: string,
+    @Query() query: EndpointTraceQueryDto,
+  ) {
+    return this.endpointMetrics.getEndpointTraces(
+      serviceName,
+      endpointName,
+      query,
+    );
   }
 }

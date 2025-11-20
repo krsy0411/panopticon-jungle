@@ -64,6 +64,27 @@ export interface EndpointMetricsItem {
   errorRate: number;
 }
 
+export interface EndpointTraceQueryParams {
+  serviceName: string;
+  endpointName: string;
+  environment?: string;
+  from: string;
+  to: string;
+  status?: "ERROR" | "SLOW";
+  slowPercentile?: number;
+  limit: number;
+}
+
+export interface EndpointTraceItem {
+  traceId: string;
+  spanId: string;
+  timestamp: string;
+  durationMs: number;
+  status: string;
+  serviceName: string;
+  environment: string;
+}
+
 export interface SpanListQuery {
   serviceName?: string;
   environment?: string;
@@ -111,6 +132,30 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     super(storage, SpanRepository.STREAM_KEY);
   }
 
+  private normalizeEnvironmentFilter(environment?: string): string | undefined {
+    if (!environment) {
+      return undefined;
+    }
+    const trimmed = environment.trim();
+    if (!trimmed) {
+      return undefined;
+    }
+
+    const key = trimmed.toLowerCase();
+    const alias: Record<string, string> = {
+      prod: "production",
+      production: "production",
+      dev: "development",
+      development: "development",
+      stage: "staging",
+      staging: "staging",
+      qa: "qa",
+      test: "test",
+    };
+
+    return alias[key] ?? trimmed;
+  }
+
   private buildTimeRangeFilter(from: string, to: string) {
     return {
       range: {
@@ -151,8 +196,9 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     if (params.serviceName) {
       filter.push({ term: { service_name: params.serviceName } });
     }
-    if (params.environment) {
-      filter.push({ term: { environment: params.environment } });
+    const normalizedEnv = this.normalizeEnvironmentFilter(params.environment);
+    if (normalizedEnv) {
+      filter.push({ term: { environment: normalizedEnv } });
     }
 
     const response = await this.client.search<SpanDocument>({
@@ -183,6 +229,9 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
   async aggregateServiceMetrics(
     params: ServiceMetricQuery,
   ): Promise<ServiceMetricBucket[]> {
+    const environmentFilter = this.normalizeEnvironmentFilter(
+      params.environment,
+    );
     const response = await this.client.search({
       index: this.dataStream,
       size: 0,
@@ -201,8 +250,8 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
                 },
               },
             },
-            ...(params.environment
-              ? [{ term: { environment: params.environment } }]
+            ...(environmentFilter
+              ? [{ term: { environment: environmentFilter } }]
               : []),
           ],
         },
@@ -277,6 +326,9 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
   async aggregateServiceOverview(
     params: ServiceOverviewParams,
   ): Promise<ServiceOverviewItem[]> {
+    const environmentFilter = this.normalizeEnvironmentFilter(
+      params.environment,
+    );
     const response = await this.client.search({
       index: this.dataStream,
       size: 0,
@@ -284,8 +336,8 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
         bool: {
           filter: [
             this.buildTimeRangeFilter(params.from, params.to),
-            ...(params.environment
-              ? [{ term: { environment: params.environment } }]
+            ...(environmentFilter
+              ? [{ term: { environment: environmentFilter } }]
               : []),
           ],
         },
@@ -378,6 +430,9 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
   async aggregateEndpointMetrics(
     params: EndpointMetricsParams,
   ): Promise<EndpointMetricsItem[]> {
+    const environmentFilter = this.normalizeEnvironmentFilter(
+      params.environment,
+    );
     const response = await this.client.search({
       index: this.dataStream,
       size: 0,
@@ -389,8 +444,8 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
           ],
           filter: [
             this.buildTimeRangeFilter(params.from, params.to),
-            ...(params.environment
-              ? [{ term: { environment: params.environment } }]
+            ...(environmentFilter
+              ? [{ term: { environment: environmentFilter } }]
               : []),
           ],
         },
@@ -441,7 +496,7 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       return {
         endpointName: bucket.key,
         serviceName: params.serviceName,
-        environment: params.environment ?? "all",
+        environment: environmentFilter ?? "all",
         requestCount: total,
         latencyP95: Number.isFinite(latencyValue) ? latencyValue : 0,
         errorRate: total > 0 ? errors / total : 0,
@@ -459,17 +514,127 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
   }
 
   /**
+   * 특정 서비스/엔드포인트에 대한 최신 trace 목록을 조회한다.
+   * - status=ERROR 인 경우 에러 trace만 반환
+   * - status=SLOW 인 경우 p95 이상(기본) 지연 스팬만 반환
+   */
+  async findRecentTracesByEndpoint(
+    params: EndpointTraceQueryParams,
+  ): Promise<EndpointTraceItem[]> {
+    const environmentFilter = this.normalizeEnvironmentFilter(
+      params.environment,
+    );
+    const filters: Array<Record<string, unknown>> = [
+      { term: { service_name: params.serviceName } },
+      { term: { kind: "SERVER" } },
+      { term: { name: params.endpointName } },
+      this.buildTimeRangeFilter(params.from, params.to),
+    ];
+    if (environmentFilter) {
+      filters.push({ term: { environment: environmentFilter } });
+    }
+    const slowThresholdMs =
+      params.status === "SLOW"
+        ? await this.resolveSlowThreshold(params, environmentFilter)
+        : null;
+
+    if (params.status === "ERROR") {
+      filters.push({ term: { status: "ERROR" } });
+    }
+
+    const response = await this.client.search<SpanDocument>({
+      index: this.dataStream,
+      size: params.limit,
+      sort: [{ "@timestamp": { order: "desc" as const } }],
+      query: {
+        bool: {
+          filter: [
+            ...filters,
+            ...(slowThresholdMs
+              ? [
+                  {
+                    range: {
+                      duration_ms: {
+                        gte: slowThresholdMs,
+                      },
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
+      },
+    });
+
+    return response.hits.hits
+      .filter(
+        (hit): hit is typeof hit & { _source: SpanDocument; _id: string } =>
+          Boolean(hit._source) && typeof hit._id === "string",
+      )
+      .map((hit) => ({
+        traceId: hit._source.trace_id,
+        spanId: hit._source.span_id,
+        timestamp: hit._source["@timestamp"],
+        durationMs: hit._source.duration_ms,
+        status: hit._source.status ?? "OK",
+        serviceName: hit._source.service_name,
+        environment: hit._source.environment,
+      }));
+  }
+
+  private async resolveSlowThreshold(
+    params: EndpointTraceQueryParams,
+    environmentFilter: string | undefined,
+  ): Promise<number | null> {
+    // 지정된 기간/서비스/엔드포인트에 대한 latency percentile을 집계해
+    // status=SLOW 요청 시 적용할 지연 시간 기준을 동적으로 계산한다.
+    const percentile = params.slowPercentile ?? 95;
+    const response = await this.client.search({
+      index: this.dataStream,
+      size: 0,
+      query: {
+        bool: {
+          filter: [
+            { term: { service_name: params.serviceName } },
+            { term: { kind: "SERVER" } },
+            { term: { name: params.endpointName } },
+            ...(environmentFilter
+              ? [{ term: { environment: environmentFilter } }]
+              : []),
+            this.buildTimeRangeFilter(params.from, params.to),
+          ],
+        },
+      },
+      aggs: {
+        latency: {
+          percentiles: {
+            field: "duration_ms",
+            percents: [percentile],
+          },
+        },
+      },
+    });
+
+    const value =
+      (
+        response.aggregations as {
+          latency?: { values: Record<string, number> };
+        }
+      )?.latency?.values?.[String(percentile)] ?? null;
+    return Number.isFinite(value) ? value : null;
+  }
+
+  /**
    * 범용 스팬 검색
    */
   async searchSpans(
     params: SpanListQuery,
   ): Promise<SpanSearchResult<SpanDocument>> {
     const from = (params.page - 1) * params.size;
+    const normalizedEnv = this.normalizeEnvironmentFilter(params.environment);
     const filters: Array<Record<string, unknown>> = [
       this.buildTimeRangeFilter(params.from, params.to),
-      ...(params.environment
-        ? [{ term: { environment: params.environment } }]
-        : []),
+      ...(normalizedEnv ? [{ term: { environment: normalizedEnv } }] : []),
       ...(params.serviceName
         ? [{ term: { service_name: params.serviceName } }]
         : []),
@@ -531,6 +696,7 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
     params: ServiceTraceSearchParams,
   ): Promise<SpanSearchResult<SpanDocument>> {
     const from = (params.page - 1) * params.size;
+    const normalizedEnv = this.normalizeEnvironmentFilter(params.environment);
     const filters: Array<Record<string, unknown>> = [
       { term: { service_name: params.serviceName } },
       { term: { kind: "SERVER" } },
@@ -538,8 +704,8 @@ export class SpanRepository extends BaseApmRepository<SpanDocument> {
       { bool: { must_not: [{ exists: { field: "parent_span_id" } }] } },
     ];
 
-    if (params.environment) {
-      filters.push({ term: { environment: params.environment } });
+    if (normalizedEnv) {
+      filters.push({ term: { environment: normalizedEnv } });
     }
     if (params.status) {
       filters.push({ term: { status: params.status } });

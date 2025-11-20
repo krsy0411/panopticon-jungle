@@ -7,12 +7,11 @@
 | 서비스 | 포트 | 용도 |
 |--------|------|------|
 | Kafka | 9092 | 메시지 큐 (로그/메트릭 스트림) |
-| TimescaleDB | 5433 (컨테이너 5432) | 시계열 메트릭 저장소 (PostgreSQL) |
 | Elasticsearch | 9200 | 로그 검색 저장소 |
 | Kibana | 5601 | Elasticsearch UI |
 | Redis | 6379 | 실시간 집계 캐시 |
-| Query API | 3001 | 브라우저 요청을 처리해 OpenSearch/Timescale 조회 |
-| Stream Processor | 내부 | MSK(Kafka) 메시지 소비 → OpenSearch/Timescale 적재 |
+| Query API | 3001 | 브라우저 요청을 처리해 OpenSearch를 조회 |
+| Stream Processor | 내부 | MSK(Kafka) 메시지 소비 → OpenSearch 적재 |
 
 ## 사용 방법
 
@@ -37,7 +36,6 @@ docker compose logs -f
 
 # 특정 서비스 로그
 docker compose logs -f kafka
-docker compose logs -f timescaledb
 docker compose logs -f elasticsearch
 ```
 
@@ -73,17 +71,6 @@ docker compose down -v
 
 ## 서비스별 접속 정보
 
-### TimescaleDB
-
-```bash
-# psql 접속
-docker compose exec timescaledb psql -U admin -d panopticon
-
-# 또는 로컬에서
-psql -h localhost -p 5433 -U admin -d panopticon
-# Password: admin123
-```
-
 ### Elasticsearch
 
 ```bash
@@ -109,7 +96,7 @@ curl http://localhost:3001/api-docs
 docker compose logs -f stream-processor
 ```
 
-Query API와 Stream Processor는 각기 다른 Docker 타깃으로 빌드되며, 운영 환경에서는 각 이미지를 ECR/ECS에 개별 배포합니다. 로컬 Compose는 MSK/Opensearch 같은 매니지드 자원을 대신할 개발용 의존성(Kafka/Elasticsearch/Timescale)을 제공합니다.
+Query API와 Stream Processor는 각기 다른 Docker 타깃으로 빌드되며, 운영 환경에서는 각 이미지를 ECR/ECS에 개별 배포합니다. 로컬 Compose는 MSK/OpenSearch 같은 매니지드 자원을 대신할 개발용 의존성(Kafka/Elasticsearch/Redis)을 제공합니다.
 
 ### Redis
 
@@ -164,7 +151,6 @@ docker compose up -d
 
 컨테이너 내부에서는 서비스 이름으로 접근 가능합니다:
 - `kafka:9092`
-- `timescaledb:5432`
 - `elasticsearch:9200`
 - `redis:6379`
 - `query-api:3001`

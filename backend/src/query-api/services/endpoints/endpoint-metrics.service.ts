@@ -6,6 +6,8 @@ import type {
   EndpointMetricsItemDto,
   EndpointMetricsResponseDto,
 } from "./endpoint-metrics.types";
+import type { EndpointTraceQueryDto } from "./dto/endpoint-trace-query.dto";
+import type { EndpointTraceItem } from "../../../shared/apm/spans/span.repository";
 
 /**
  * 서비스 엔드포인트 단위 메트릭 집계 서비스
@@ -56,5 +58,25 @@ export class EndpointMetricsService {
     sortBy: "request_count" | "latency_p95_ms" | "error_rate",
   ): EndpointMetricsItemDto[] {
     return [...items].sort((a, b) => b[sortBy] - a[sortBy]);
+  }
+
+  async getEndpointTraces(
+    serviceName: string,
+    endpointName: string,
+    query: EndpointTraceQueryDto,
+  ): Promise<EndpointTraceItem[]> {
+    // 엔드포인트 목록에서 클릭했을 때 바로 사용할 수 있도록 최근 trace 샘플을 제공한다.
+    const { from, to } = resolveTimeRange(query.from, query.to, 60);
+    const limit = query.limit ?? 20;
+    return this.spanRepository.findRecentTracesByEndpoint({
+      serviceName,
+      endpointName,
+      environment: query.environment,
+      from,
+      to,
+      status: query.status,
+      limit,
+      slowPercentile: query.slow_percentile,
+    });
   }
 }
