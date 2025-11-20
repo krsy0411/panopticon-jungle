@@ -10,8 +10,8 @@ import { Transport, TransportOptions } from "@elastic/transport";
 const DEFAULT_ROLLOVER_SIZE = "10gb";
 const DEFAULT_ROLLOVER_AGE = "1d";
 
-// APM 로그/스팬 데이터 스트림 키
-export type LogStreamKey = "apmLogs" | "apmSpans";
+// APM 로그/스팬/롤업 데이터 스트림 키
+export type LogStreamKey = "apmLogs" | "apmSpans" | "apmRollupMetrics";
 
 interface DataStreamConfig {
   key: LogStreamKey;
@@ -80,6 +80,8 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
       process.env.ELASTICSEARCH_APM_LOG_STREAM ?? "logs-apm";
     const apmSpansStream =
       process.env.ELASTICSEARCH_APM_SPAN_STREAM ?? "traces-apm";
+    const rollupStream =
+      process.env.ELASTICSEARCH_APM_ROLLUP_STREAM ?? "metrics-apm";
 
     // 데이터 스트림별 매핑 정의
     this.configs = {
@@ -148,6 +150,42 @@ export class LogStorageService implements OnModuleInit, OnModuleDestroy {
             http_path: { type: "keyword" },
             http_status_code: { type: "integer" },
             labels: { type: "object", dynamic: true },
+            ingestedAt: { type: "date" },
+          },
+        },
+      },
+      apmRollupMetrics: {
+        key: "apmRollupMetrics",
+        dataStream: rollupStream,
+        templateName:
+          process.env.ELASTICSEARCH_APM_ROLLUP_TEMPLATE ??
+          `${rollupStream}-template`,
+        ilmPolicyName:
+          process.env.ELASTICSEARCH_APM_ROLLUP_ILM_POLICY ??
+          `${rollupStream}-ilm-policy`,
+        rolloverSize:
+          process.env.ELASTICSEARCH_APM_ROLLUP_ROLLOVER_SIZE ??
+          DEFAULT_ROLLOVER_SIZE,
+        rolloverAge:
+          process.env.ELASTICSEARCH_APM_ROLLUP_ROLLOVER_AGE ??
+          DEFAULT_ROLLOVER_AGE,
+        mappings: {
+          properties: {
+            "@timestamp": { type: "date" },
+            "@timestamp_bucket": { type: "date" },
+            bucket_duration_seconds: { type: "integer" },
+            service_name: { type: "keyword" },
+            environment: { type: "keyword" },
+            target: { type: "keyword" },
+            request_count: { type: "long" },
+            error_count: { type: "long" },
+            error_rate: { type: "double" },
+            latency_p50_ms: { type: "double" },
+            latency_p90_ms: { type: "double" },
+            latency_p95_ms: { type: "double" },
+            latency_p99_ms: { type: "double" },
+            source_window_from: { type: "date" },
+            source_window_to: { type: "date" },
             ingestedAt: { type: "date" },
           },
         },
