@@ -27,10 +27,7 @@ async function bootstrap() {
 
   // prefix 고정
   app.setGlobalPrefix('producer', {
-    exclude: [
-      { path: '/health', method: RequestMethod.GET },
-      { path: '/', method: RequestMethod.GET },
-    ],
+    exclude: [{ path: '/health', method: RequestMethod.GET }],
   });
 
   await app.listen(PORT || 3000);
