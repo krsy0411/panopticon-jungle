@@ -10,6 +10,7 @@ pnpm-debug.log*
 lerna-debug.log*
 # Ignore all Markdown files repo-wide…
 *.md
+apm_query_api_spec_v2.yaml
 # …but keep README.md files tracked
 !README.md
 # Keep project-specific ignores inside subdirectories (.gitignore within backend/, frontend/, etc.)
