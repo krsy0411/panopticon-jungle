@@ -1,16 +1,19 @@
 import { Injectable } from "@nestjs/common";
-import { ApmLogRepository } from "../../../shared/apm/logs/log.repository";
 import type { LogEventDto } from "../../../shared/apm/logs/dto/log-event.dto";
 import type { LogDocument } from "../../../shared/apm/logs/log.document";
+import type { LogStreamKey } from "../../../shared/logs/log-storage.service";
+import { BulkIndexerService } from "../../common/bulk-indexer.service";
 
 /**
  * Kafka에서 들어온 로그 이벤트를 Elasticsearch에 저장하는 서비스
  */
 @Injectable()
 export class LogIngestService {
-  constructor(private readonly repository: ApmLogRepository) {}
+  private static readonly STREAM_KEY: LogStreamKey = "apmLogs";
 
-  async ingest(dto: LogEventDto): Promise<void> {
+  constructor(private readonly bulkIndexer: BulkIndexerService) {}
+
+  ingest(dto: LogEventDto): void {
     const document: LogDocument = {
       "@timestamp": this.resolveTimestamp(dto.timestamp),
       type: "log",
@@ -27,7 +30,8 @@ export class LogIngestService {
       ingestedAt: new Date().toISOString(),
     };
 
-    await this.repository.save(document);
+    // 로그 문서를 bulk 버퍼에 적재하고 즉시 반환해 Kafka 처리를 막지 않는다.
+    this.bulkIndexer.enqueue(LogIngestService.STREAM_KEY, document);
   }
 
   /**

@@ -27,7 +27,7 @@ export class SpanConsumerController {
   constructor(private readonly spanIngestService: SpanIngestService) {}
 
   @EventPattern(process.env.KAFKA_APM_SPAN_TOPIC ?? "apm.spans")
-  async handleSpanEvent(@Ctx() context: KafkaContext): Promise<void> {
+  handleSpanEvent(@Ctx() context: KafkaContext): void {
     const value = context.getMessage().value;
     if (value == null) {
       this.logger.warn("Kafka 메시지에 본문이 없어 처리를 건너뜁니다.");
@@ -36,7 +36,7 @@ export class SpanConsumerController {
 
     try {
       const dto = this.parsePayload(value);
-      await this.spanIngestService.ingest(dto);
+      this.spanIngestService.ingest(dto);
       this.throughputTracker.markProcessed();
       this.logger.debug(
         `스팬이 색인되었습니다. topic=${context.getTopic()} partition=${context.getPartition()}`,

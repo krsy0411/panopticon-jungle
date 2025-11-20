@@ -143,6 +143,10 @@ export function createKafkaMicroserviceOptions(
       consumer: {
         groupId: params.groupId,
         allowAutoTopicCreation: params.allowAutoTopicCreation ?? true,
+        partitionsConsumedConcurrently: Number.parseInt(
+          process.env.KAFKA_CONCURRENT_PARTITIONS ?? "3",
+          10,
+        ),
       },
     },
   };

@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-모노레포 루트에는 `backend`(주요 NestJS 모노앱), `producerServer`, `app_api`, `infra`, `k8s_userside_log_generator` 가 있습니다. 일상 개발은 `backend` 디렉터리에서 수행하며 `src/query-api`(읽기 전용 API), `src/stream-processor`(카프카 소비자), `src/shared`(공용 DTO·서비스)로 나뉩니다. 런타임 산출물은 `dist/`에 생성되고, 환경 전용 설정은 `.env`, `.env.local`, `infra/docker-compose.yml` 등에 위치합니다. 테스트 스위트는 `src/**/*.spec.ts`에 두고, 샘플 수집 스크립트는 `src/stream-processor/log-consumer/app` 하위에 있습니다.
+모노레포 루트에는 `backend`(주요 NestJS 모노앱), `producerServer`, `app_api`, `infra` 가 있습니다. 일상 개발은 `backend` 디렉터리에서 수행하며 `src/query-api`(읽기 전용 API), `src/stream-processor`(카프카 소비자), `src/shared`(공용 DTO·서비스)로 나뉩니다. 런타임 산출물은 `dist/`에 생성되고, 환경 전용 설정은 `.env`, `.env.local`, `infra/docker-compose.yml` 등에 위치합니다. 테스트 스위트는 `src/**/*.spec.ts`에 두고, 샘플 수집 스크립트는 `src/stream-processor/log-consumer/app` 하위에 있습니다.
 
 ## Build, Test, and Development Commands
 모든 명령은 `backend`에서 실행합니다. `npm run start:query-api`, `npm run start:log-consumer`, `npm run start:metrics-consumer` 는 각각의 Nest 엔트리를 ts-node로 부팅합니다. 프로덕션 빌드는 `npm run build` 또는 서비스별 `npm run build:query-api`, `npm run build:stream-processor` 로 생성합니다. 로컬 통합 확인 시 `docker compose -f infra/docker-compose.yml up kafka elasticsearch redis` 로 인프라를 띄운 뒤 애플리케이션을 npm 스크립트로 실행합니다. 샘플 이벤트는 `npm run test:app-log`·`npm run test:http-log` 로 발행합니다.

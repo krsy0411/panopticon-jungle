@@ -67,6 +67,17 @@ Kafka 컨슈머 처리량을 주기적으로 파악하고 싶다면 다음 환�
 | `STREAM_THROUGHPUT_MIN_INTERVAL_MS` | `10000` | 처리량 로그 사이의 최소 간격(ms). 너무 잦은 로깅을 방지합니다. |
 | `STREAM_THROUGHPUT_TARGET_COUNT` | _(옵션)_ | 총 N건 처리 완료까지의 예상 소요 시간을 로그에 함께 표시합니다. |
 
+### Bulk 색인 버퍼 옵션
+
+`apm.logs`/`apm.spans` 컨슈머는 Elasticsearch `_bulk` API로 배치 색인을 수행합니다. 아래 환경 변수를 통해 버퍼 크기와 플러시 동시성을 조정할 수 있습니다.
+
+| 변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `BULK_BATCH_SIZE` | `500` | 버퍼에 일정 건수 이상 쌓이면 즉시 flush 합니다. |
+| `BULK_BATCH_BYTES_MB` | `5` | 문서 크기 합계가 지정한 MB를 넘기면 즉시 flush 합니다. |
+| `BULK_FLUSH_INTERVAL_MS` | `1000` | 위 조건을 만족하지 않아도 해당 시간이 지나면 주기적으로 flush 합니다. |
+| `BULK_MAX_PARALLEL_FLUSHES` | `1` | 동시에 실행할 bulk 요청 개수. 클러스터 부하에 맞게 1~4 사이에서 조정하세요. |
+
 ### Query API 성능 프로파일링
 
 서비스 메트릭 엔드포인트(`GET /services/{serviceName}/metrics`)가 Elasticsearch 집계를 수행하는데 걸린 시간을 확인하려면 `SERVICE_METRICS_PROFILE=true`를 설정하면 됩니다.  

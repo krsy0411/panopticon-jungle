@@ -1,16 +1,19 @@
 import { Injectable } from "@nestjs/common";
-import { SpanRepository } from "../../../shared/apm/spans/span.repository";
 import type { SpanEventDto } from "../../../shared/apm/spans/dto/span-event.dto";
 import type { SpanDocument } from "../../../shared/apm/spans/span.document";
+import type { LogStreamKey } from "../../../shared/logs/log-storage.service";
+import { BulkIndexerService } from "../../common/bulk-indexer.service";
 
 /**
  * 스팬 이벤트를 Elasticsearch에 저장하는 서비스
  */
 @Injectable()
 export class SpanIngestService {
-  constructor(private readonly repository: SpanRepository) {}
+  private static readonly STREAM_KEY: LogStreamKey = "apmSpans";
 
-  async ingest(dto: SpanEventDto): Promise<void> {
+  constructor(private readonly bulkIndexer: BulkIndexerService) {}
+
+  ingest(dto: SpanEventDto): void {
     const document: SpanDocument = {
       "@timestamp": this.resolveTimestamp(dto.timestamp),
       type: "span",
@@ -30,7 +33,8 @@ export class SpanIngestService {
       ingestedAt: new Date().toISOString(),
     };
 
-    await this.repository.save(document);
+    // 스팬 문서를 BulkIndexer 버퍼에 적재해 Kafka 처리가 지연되지 않도록 한다.
+    this.bulkIndexer.enqueue(SpanIngestService.STREAM_KEY, document);
   }
 
   /**

@@ -8,4 +8,9 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+# Ignore all Markdown files repo-wide…
+*.md
+# …but keep README.md files tracked
+!README.md
+# Keep project-specific ignores inside subdirectories (.gitignore within backend/, frontend/, etc.)
 # Keep project-specific ignores inside subdirectories (.gitignore within backend/, frontend/, etc.)
