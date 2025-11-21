@@ -6,24 +6,29 @@ import { Injectable } from "@nestjs/common";
  */
 @Injectable()
 export class RollupConfigService {
+  // Aggregator 전체 on/off 스위치 (기본 true)
   private readonly enabled =
     (process.env.ROLLUP_AGGREGATOR_ENABLED ?? "true").toLowerCase() === "true";
 
+  // 롤업 버킷 길이(초). 60초 = 1분 버킷
   private readonly bucketSeconds = this.parseNumber(
     process.env.ROLLUP_BUCKET_SECONDS,
     60,
   );
 
+  // 닫힌 분을 확인하는 주기(ms). 짧을수록 최신 분을 빨리 처리한다.
   private readonly pollIntervalMs = this.parseNumber(
     process.env.ROLLUP_POLL_INTERVAL_MS,
     15_000,
   );
 
+  // 체크포인트가 없을 때 과거 몇 분까지 되돌아갈지 결정
   private readonly initialLookbackMinutes = this.parseNumber(
     process.env.ROLLUP_INITIAL_LOOKBACK_MINUTES,
     5,
   );
 
+  // 단일 분에 등장하는 서비스 수 상한(terms size). 너무 많으면 캐시/샤드 압박이 있다.
   private readonly maxServiceBuckets = this.parseNumber(
     process.env.ROLLUP_MAX_SERVICE_BUCKETS,
     200,
@@ -34,9 +39,11 @@ export class RollupConfigService {
     10,
   );
 
+  // lastRolledUpAt 을 저장하는 전용 인덱스 이름
   private readonly checkpointIndex =
     process.env.ROLLUP_CHECKPOINT_INDEX ?? ".metrics-rollup-state";
 
+  // Aggregator가 데이터를 쓰는 롤업 데이터 스트림 접두사
   private readonly rollupIndexPrefix =
     process.env.ROLLUP_INDEX_PREFIX ?? "metrics-apm";
 

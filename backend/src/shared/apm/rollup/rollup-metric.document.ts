@@ -1,6 +1,6 @@
 /**
- * 롤업 된 APM 메트릭 문서 스키마
- * - Elasticsearch data stream(metrics-apm.*)에 그대로 저장된다.
+ * 롤업된 APM 메트릭 문서 스키마
+ * - Query API와 Aggregator가 함께 참조한다.
  */
 export interface RollupMetricDocument extends Record<string, unknown> {
   "@timestamp": string;

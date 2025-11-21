@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import type { Client } from "@elastic/elasticsearch";
 import { LogStorageService } from "../shared/logs/log-storage.service";
 import type { MinuteWindow } from "./types/minute-window.type";
-import type { RollupMetricDocument } from "./types/rollup-metric-document";
+import type { RollupMetricDocument } from "../shared/apm/rollup/rollup-metric.document";
 import { RollupConfigService } from "./rollup-config.service";
 
 const UNKNOWN_SERVICE = "unknown-service";
@@ -103,11 +103,13 @@ export class SpanMinuteAggregationService {
       [];
 
     const bucketDocs: RollupMetricDocument[] = [];
+    let totalSpanCount = 0;
     const ingestedAt = new Date().toISOString();
     const bucketDurationSeconds = this.config.getBucketDurationSeconds();
 
     for (const serviceBucket of services) {
       const serviceName = serviceBucket.key || UNKNOWN_SERVICE;
+      totalSpanCount += serviceBucket.doc_count ?? 0;
       for (const envBucket of serviceBucket.environments.buckets) {
         const environment = envBucket.key || UNKNOWN_ENVIRONMENT;
         const total = envBucket.doc_count ?? 0;
@@ -147,11 +149,11 @@ export class SpanMinuteAggregationService {
 
     if (bucketDocs.length === 0) {
       this.logger.log(
-        `집계 대상 스팬이 없어 비어 있는 분을 건너뜁니다. window=${window.start.toISOString()}~${window.end.toISOString()} es_took=${took}ms`,
+        `집계 대상 스팬이 없어 비어 있는 분을 건너뜁니다. window=${window.start.toISOString()}~${window.end.toISOString()} spans=0 es_took=${took}ms`,
       );
     } else {
       this.logger.log(
-        `스팬 집계 완료 window=${window.start.toISOString()}~${window.end.toISOString()} services=${services.length} docs=${bucketDocs.length} es_took=${took}ms`,
+        `스팬 집계 완료 window=${window.start.toISOString()}~${window.end.toISOString()} services=${services.length} docs=${bucketDocs.length} spans=${totalSpanCount} es_took=${took}ms`,
       );
     }
 

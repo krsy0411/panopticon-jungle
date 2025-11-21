@@ -48,6 +48,7 @@
     "aws-msk-iam-sasl-signer-js": "^1.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
+    "date-fns-tz": "^3.2.0",
     "dotenv": "^17.2.3",
     "ioredis": "^5.8.2",
     "kafkajs": "^2.2.4",
