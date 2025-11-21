@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { Client } from "@elastic/elasticsearch";
 import { LogStorageService } from "../shared/logs/log-storage.service";
-import type { RollupMetricDocument } from "./types/rollup-metric-document";
+import type { RollupMetricDocument } from "../shared/apm/rollup/rollup-metric.document";
 
 /**
  * 롤업 결과를 metrics data stream 에 저장하는 책임을 가지는 레포지토리

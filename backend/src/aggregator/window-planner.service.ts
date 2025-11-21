@@ -53,6 +53,7 @@ export class MinuteWindowPlanner {
     if (Number.isNaN(timestamp) || timestamp <= 0) {
       return null;
     }
+    // 현재 시각을 버킷 크기로 나눈 뒤 내림하여 "완전히 종료된 분"까지만 바라본다.
     return timestamp - (timestamp % bucketMs);
   }
 
@@ -61,6 +62,7 @@ export class MinuteWindowPlanner {
     if (remainder === 0) {
       return timestamp;
     }
+    // 특정 시각을 가장 가까운 버킷 시작점으로 내림 정렬한다.
     return timestamp - remainder;
   }
 }
