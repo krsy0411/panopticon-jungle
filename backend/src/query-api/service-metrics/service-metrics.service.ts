@@ -254,8 +254,14 @@ export class ServiceMetricsService {
     if (cacheKey) {
       const cached = await this.metricsCache.get(cacheKey);
       if (cached) {
+        this.logger.debug(
+          `롤업 캐시 히트 service=${normalized.serviceName} window=${this.formatTimestamp(window.from)}~${this.formatTimestamp(window.to)}`,
+        );
         return JSON.parse(cached) as ServiceMetricBucket[];
       }
+      this.logger.debug(
+        `롤업 캐시 미스 service=${normalized.serviceName} window=${this.formatTimestamp(window.from)}~${this.formatTimestamp(window.to)}`,
+      );
     }
 
     const fromMs = Date.parse(window.from);
