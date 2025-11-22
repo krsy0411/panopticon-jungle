@@ -376,16 +376,17 @@ class UserSimulationTest(HttpUser):
     """
 
     # Wait time between requests (simulating real user behavior)
-    wait_time = between(0.5, 3)
+    wait_time = between(0.1, 0.5)
 
     # Override host with environment variable or default
     host = PRODUCER_URL
 
-    @task(6)  # 60% weight for logs
+    @task(2)  # 60% weight for logs
     def send_realistic_logs(self):
         """Send realistic log data"""
         # Send batch of 1-5 logs
-        batch_size = random.randint(1, 5)
+        # batch_size = random.randint(1, 5)
+        batch_size = 15
         batch_data = [generate_realistic_log() for _ in range(batch_size)]
 
         with self.client.post(
@@ -399,7 +400,7 @@ class UserSimulationTest(HttpUser):
             else:
                 response.failure(f'Expected 202, got {response.status_code}')
 
-    @task(4)  # 40% weight for spans
+    @task(8)  # 40% weight for spans
     def send_realistic_spans(self):
         """Send realistic span chain data"""
         # Generate a span chain (HTTP -> Handler -> DB)
