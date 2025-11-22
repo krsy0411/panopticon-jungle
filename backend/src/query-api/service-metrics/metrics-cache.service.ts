@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from "@nestjs/common";
 import type Redis from "ioredis";
 import RedisClient from "ioredis";
 import type { NormalizedServiceMetricsQuery } from "./normalized-service-metrics-query.type";
@@ -8,9 +13,9 @@ import type { NormalizedServiceMetricsQuery } from "./normalized-service-metrics
  * Redis 장애 시에는 로그만 남기고 기능을 비활성화한다.
  */
 @Injectable()
-export class MetricsCacheService implements OnModuleDestroy {
+export class MetricsCacheService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(MetricsCacheService.name);
-  private readonly client: Redis | null;
+  private client: Redis | null;
   private readonly ttlSeconds: number;
   private readonly keyPrefix: string;
 
@@ -49,12 +54,34 @@ export class MetricsCacheService implements OnModuleDestroy {
       lazyConnect: true,
     });
 
+    this.client.once("ready", () => {
+      this.logger.log(
+        `Redis 캐시 연결이 완료되었습니다. host=${host} port=${port} prefix=${this.keyPrefix}`,
+      );
+    });
+
     this.client.on("error", (error) => {
       this.logger.error(
         "Redis 캐시 연결에서 오류가 발생했습니다.",
         error instanceof Error ? error.stack : String(error),
       );
     });
+  }
+
+  async onModuleInit(): Promise<void> {
+    if (!this.client) {
+      return;
+    }
+    try {
+      await this.client.connect();
+    } catch (error) {
+      this.logger.error(
+        "Redis 캐시에 연결하지 못해 캐시 레이어를 비활성화합니다.",
+        error instanceof Error ? error.stack : String(error),
+      );
+      this.client.disconnect();
+      this.client = null;
+    }
   }
 
   isEnabled(): boolean {

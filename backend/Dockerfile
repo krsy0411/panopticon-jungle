@@ -15,6 +15,9 @@ RUN npm run build:stream-processor
 FROM base AS build-error
 RUN npm run build:error-stream
 
+FROM base AS build-aggregator
+RUN npm run build:aggregator
+
 FROM node:20-alpine AS runtime-base
 WORKDIR /app
 ENV NODE_ENV=production
@@ -35,3 +38,7 @@ FROM runtime-base AS error-stream
 COPY --from=build-error /app/dist/error-stream ./dist
 EXPOSE 3010
 CMD ["node", "dist/error-stream/main"]
+
+FROM runtime-base AS aggregator
+COPY --from=build-aggregator /app/dist/aggregator ./dist
+CMD ["node", "dist/aggregator/main"]
