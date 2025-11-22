@@ -250,6 +250,7 @@ export class ServiceMetricsService {
 
     const cacheKey =
       this.rollupCacheAvailable() &&
+      window.isSlidingWindow &&
       this.buildRollupCacheKey(normalized, window);
     if (cacheKey) {
       const cached = await this.metricsCache.get(cacheKey);
@@ -334,7 +335,11 @@ export class ServiceMetricsService {
     if (!this.rollupEnabled) {
       return {
         rollupWindow: null,
-        rawWindow: { from: normalized.from, to: normalized.to },
+        rawWindow: {
+          from: normalized.from,
+          to: normalized.to,
+          isSlidingWindow: normalized.isSlidingWindow,
+        },
       };
     }
 
@@ -343,14 +348,22 @@ export class ServiceMetricsService {
     if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || toMs <= fromMs) {
       return {
         rollupWindow: null,
-        rawWindow: { from: normalized.from, to: normalized.to },
+        rawWindow: {
+          from: normalized.from,
+          to: normalized.to,
+          isSlidingWindow: normalized.isSlidingWindow,
+        },
       };
     }
 
     if (toMs - fromMs <= this.rollupThresholdMs) {
       return {
         rollupWindow: null,
-        rawWindow: { from: normalized.from, to: normalized.to },
+        rawWindow: {
+          from: normalized.from,
+          to: normalized.to,
+          isSlidingWindow: normalized.isSlidingWindow,
+        },
       };
     }
 
@@ -359,18 +372,24 @@ export class ServiceMetricsService {
     if (splitPoint <= fromMs) {
       return {
         rollupWindow: null,
-        rawWindow: { from: normalized.from, to: normalized.to },
+        rawWindow: {
+          from: normalized.from,
+          to: normalized.to,
+          isSlidingWindow: normalized.isSlidingWindow,
+        },
       };
     }
 
     const rollupWindow: MetricsWindow = {
       from: normalized.from,
       to: new Date(splitPoint).toISOString(),
+      isSlidingWindow: normalized.isSlidingWindow,
     };
 
     const rawWindow: MetricsWindow = {
       from: rollupWindow.to,
       to: normalized.to,
+      isSlidingWindow: normalized.isSlidingWindow,
     };
     return {
       rollupWindow,
@@ -476,6 +495,7 @@ export class ServiceMetricsService {
 interface MetricsWindow {
   from: string;
   to: string;
+  isSlidingWindow: boolean;
 }
 
 interface MetricsFetchPlan {

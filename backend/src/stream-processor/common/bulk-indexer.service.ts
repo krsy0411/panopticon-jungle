@@ -48,7 +48,7 @@ export class BulkIndexerService implements OnModuleDestroy {
     );
     this.maxParallelFlushes = Math.max(
       1,
-      Number.parseInt(process.env.BULK_MAX_PARALLEL_FLUSHES ?? "2", 10),
+      Number.parseInt(process.env.BULK_MAX_PARALLEL_FLUSHES ?? "3", 10),
     );
   }
 
