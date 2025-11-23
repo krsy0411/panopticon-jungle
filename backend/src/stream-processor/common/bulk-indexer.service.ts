@@ -24,6 +24,7 @@ export class BulkIndexerService implements OnModuleDestroy {
   private readonly maxBatchSize: number;
   private readonly maxBatchBytes: number;
   private readonly flushIntervalMs: number;
+  // 병렬 플러시
   private readonly maxParallelFlushes: number;
 
   private buffer: BufferedItem[] = [];
