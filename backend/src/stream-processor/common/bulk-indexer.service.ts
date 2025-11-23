@@ -24,6 +24,7 @@ export class BulkIndexerService implements OnModuleDestroy {
   private readonly maxBatchSize: number;
   private readonly maxBatchBytes: number;
   private readonly flushIntervalMs: number;
+  // 병렬 플러시
   private readonly maxParallelFlushes: number;
 
   private buffer: BufferedItem[] = [];
@@ -48,7 +49,7 @@ export class BulkIndexerService implements OnModuleDestroy {
     );
     this.maxParallelFlushes = Math.max(
       1,
-      Number.parseInt(process.env.BULK_MAX_PARALLEL_FLUSHES ?? "2", 10),
+      Number.parseInt(process.env.BULK_MAX_PARALLEL_FLUSHES ?? "3", 10),
     );
   }
 

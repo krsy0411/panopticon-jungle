@@ -42,6 +42,10 @@ export class MetricsCacheService implements OnModuleInit, OnModuleDestroy {
     const tls = useTls
       ? {
           rejectUnauthorized: process.env.REDIS_REJECT_UNAUTHORIZED !== "false",
+          checkServerIdentity:
+            process.env.REDIS_CHECK_SERVER_IDENTITY === "false"
+              ? () => undefined
+              : undefined,
         }
       : undefined;
 
