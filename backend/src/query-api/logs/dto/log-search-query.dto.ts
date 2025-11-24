@@ -1,4 +1,4 @@
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import {
   IsIn,
   IsInt,
@@ -22,6 +22,9 @@ export class LogSearchQueryDto {
   environment?: string;
 
   @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.toUpperCase() : value,
+  )
   @IsIn(["DEBUG", "INFO", "WARN", "ERROR"])
   level?: "DEBUG" | "INFO" | "WARN" | "ERROR";
 

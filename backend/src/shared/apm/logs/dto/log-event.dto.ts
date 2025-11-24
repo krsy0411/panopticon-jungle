@@ -1,3 +1,4 @@
+import { Transform } from "class-transformer";
 import {
   IsISO8601,
   IsIn,
@@ -23,6 +24,9 @@ export class LogEventDto {
   environment!: string;
 
   @IsString()
+  @Transform(({ value }) =>
+    typeof value === "string" ? value.toUpperCase() : value,
+  )
   @IsIn(["DEBUG", "INFO", "WARN", "ERROR"])
   level!: "DEBUG" | "INFO" | "WARN" | "ERROR";
 

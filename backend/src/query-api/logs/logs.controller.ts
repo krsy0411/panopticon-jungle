@@ -40,7 +40,7 @@ export class LogsController {
   @ApiQuery({
     name: "level",
     required: false,
-    description: "로그 레벨 필터",
+    description: "로그 레벨 필터 (대소문자 무관)",
     enum: ["DEBUG", "INFO", "WARN", "ERROR"],
     example: "ERROR",
   })
